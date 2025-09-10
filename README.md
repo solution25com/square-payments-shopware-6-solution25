@@ -1,0 +1,1 @@
+# square-payments-shopware-6-solution25
