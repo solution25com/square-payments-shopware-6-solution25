@@ -1,0 +1,11 @@
+<div>
+    <sw-button-process
+            :is-loading="isLoading"
+            :process-success="isSaveSuccessful"
+            @process-finish="saveFinish"
+            @click="check"
+    >
+        {{ $tc('Square.apiTest.button') }}
+    </sw-button-process>
+</div>
+

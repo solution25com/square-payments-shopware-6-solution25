@@ -1,1 +1,1 @@
-# square-payments-shopware-6-solution25
+composer require square/square "^31.0" in the root directory of your Shopware installation.

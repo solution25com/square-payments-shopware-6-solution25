@@ -1,0 +1,61 @@
+{
+  "squarepayments": {
+    "credit_card": {
+      "cardNumberPlaceholderText": "Card number",
+      "expiryDatePlaceholderText": "MM/YY",
+      "cardNumber": "Card number"
+    },
+    "savedCards": {
+      "cvv": "CVV",
+      "pleaseEnterValidExpirationDate": "Please enter a valid expiration date.",
+      "monthInvalid": "Invalid month.",
+      "expirationDatePast": "The expiration date is in the past.",
+      "cardFieldsNotLoaded": "Card fields are not loaded yet. Please wait a few seconds.",
+      "cardVerificationFailed": "Card information could not be verified.",
+      "paymentSetupFailed": "Payment setup failed. Please try again.",
+      "paymentSetupError": "An error occurred during payment setup. Please try again.",
+      "saveCardFailed": "Failed to save card. Please try again.",
+      "saveCardError": "An error occurred while saving the card. Please try again.",
+      "authenticationFailed": "Authentication failed. Please try again.",
+      "authenticationError": "An error occurred during authentication. Please try again.",
+      "requiredField": "Please fill out {fieldName}.",
+      "requiredCheckbox": "Please check {fieldName}.",
+      "processing": "Processing...",
+
+      "cardholder": "Cardholder",
+      "savedCards": "Saved cards",
+      "useNewCardLabel": "Use a new card",
+      "creditCard": "Credit card",
+      "saveCard": "Save this card",
+
+      "addCard": "+ Add Card",
+      "cancelCard": "- Cancel",
+      "cardNumber": "Card Number:",
+      "expiryDate": "Exp:",
+      "title": "Square Saved Cards",
+      "noSavedCards": "You have no saved cards.",
+      "billingAddress": "Billing address",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "email": "Email",
+      "street": "Street",
+      "city": "City",
+      "zip": "ZIP / Postal code",
+      "country": "Country",
+      "state": "State / Region",
+      "selectState": "Select state",
+      "expDate": "Expiration date",
+      "billingState": "State:",
+      "deleteCard": "Delete card",
+      "pleaseEnterValidFirstName": "Please enter a valid first name.",
+      "pleaseEnterValidLastName": "Please enter a valid last name.",
+      "pleaseEnterValidEmail": "Please enter a valid email address.",
+      "pleaseEnterValidStreet": "Please enter a valid street.",
+      "pleaseEnterValidCity": "Please enter a valid city.",
+      "pleaseEnterValidZip": "Please enter a valid ZIP / postal code.",
+      "pleaseEnterValidCountry": "Please select a valid country.",
+      "pleaseEnterValidState": "Please select a valid state / region."
+    }
+  }
+}
+

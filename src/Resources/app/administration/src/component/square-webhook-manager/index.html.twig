@@ -1,0 +1,20 @@
+<div>
+    <div v-if="isLoading">
+        <sw-loader></sw-loader>
+    </div>
+    <div v-else>
+        <div v-if="error" class="sw-alert sw-alert--error">
+            {{ error }}
+        </div>
+        <div>
+            <p>Environment: <strong>{{ environment }}</strong></p>
+            <p>Status: <strong>{{ isActive ? 'Active' : 'Inactive' }}</strong></p>
+            <p v-if="webhookId">Webhook ID: <strong>{{ webhookId }}</strong></p>
+        </div>
+        <div>
+            <button v-if="!isActive" @click="activateWebhook" class="sw-button sw-button--primary">Activate Webhook</button>
+            <button v-if="isActive" @click="deactivateWebhook" class="sw-button sw-button--danger">Deactivate Webhook</button>
+        </div>
+    </div>
+</div>
+

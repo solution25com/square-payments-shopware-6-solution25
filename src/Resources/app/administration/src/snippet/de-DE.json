@@ -1,0 +1,21 @@
+{
+    "swag-example": {
+        "general": {
+            "mainMenuItemGeneral": "My custom module",
+            "descriptionTextModule": "Manage this custom module here"
+        }
+    },
+    "Square": {
+        "apiTest": {
+            "success": {
+                "title": "Square API-Test",
+                "message": "Verbindung erfolgreich hergestellt."
+            },
+            "error": {
+                "title": "Square API-Test",
+                "message": "Verbindung fehlgeschlagen. Bitte prüfen Sie Ihre Zugangsdaten."
+            },
+            "button": "API-Verbindung testen"
+        }
+    }
+}

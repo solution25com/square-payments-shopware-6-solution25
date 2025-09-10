@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/shopware/trunk/src/Core/System/SystemConfig/Schema/config.xsd">
+    <card>
+        <title>Environment</title>
+        <input-field type="single-select">
+            <name>mode</name>
+            <label>Mode</label>
+            <options>
+                <option>
+                    <id>sandbox</id>
+                    <name>Sandbox</name>
+                </option>
+                <option>
+                    <id>production</id>
+                    <name>Production</name>
+                </option>
+            </options>
+            <defaultValue>sandbox</defaultValue>
+        </input-field>
+    </card>
+    <card>
+        <title>Payment Mode</title>
+        <input-field type="single-select">
+            <name>paymentMode</name>
+            <label>Payment Mode</label>
+            <options>
+                <option>
+                    <id>AUTHORIZE</id>
+                    <name>Authorize</name>
+                </option>
+                <option>
+                    <id>AUTHORIZE_AND_CAPTURE</id>
+                    <name>Authorize and Capture</name>
+                </option>
+            </options>
+            <defaultValue>AUTHORIZE_AND_CAPTURE</defaultValue>
+        </input-field>
+    </card>
+    <card>
+        <title>Production Account Keys</title>
+        <input-field type="text">
+            <name>applicationIdProduction</name>
+            <label>Production Application ID </label>
+        </input-field>
+
+        <input-field type="password">
+            <name>accessTokenProduction</name>
+            <label>Production Access token </label>
+        </input-field>
+
+        <input-field type="password">
+            <name>locationIdProduction</name>
+            <label>Production Location ID</label>
+        </input-field>
+
+        <component name="square-api-test">
+            <name>ProductionSquareApiTest</name>
+        </component>
+        <component name="square-webhook-manager">
+            <name>ProductionWebhookManager</name>
+            <environment>production</environment>
+            <label>Production Webhook</label>
+            <helpText>Manage the Square webhook for production environment.</helpText>
+        </component>
+    </card>
+    <card>
+        <title>Sandbox Account Keys</title>
+        <input-field type="password">
+            <name>applicationIdSandbox</name>
+            <label>Sandbox Application ID</label>
+        </input-field>
+
+        <input-field type="password">
+            <name>accessTokenSandbox</name>
+            <label>Sandbox Access token</label>
+        </input-field>
+
+        <input-field type="text">
+            <name>locationIdSandbox</name>
+            <label>Sandbox Location ID</label>
+        </input-field>
+
+        <component name="square-api-test">
+            <name>SandboxSquareApiTest</name>
+        </component>
+        <component name="square-webhook-manager">
+            <name>SandboxWebhookManager</name>
+            <environment>sandbox</environment>
+            <label>Sandbox Webhook</label>
+            <helpText>Manage the Square webhook for sandbox environment.</helpText>
+        </component>
+    </card>
+
+    <card>
+        <title>3D Secure</title>
+        <input-field type="checkbox">
+            <name>threeDS</name>
+            <label>3DS</label>
+            <helpText>Customers can only make a purchase if their card supports 3D Secure. This applies to the hosted
+                payment fields payment method
+            </helpText>
+            <default>false</default>
+        </input-field>
+    </card>
+
+    <card>
+        <title>Google Pay</title>
+        <input-field type="text">
+            <name>merchantGoogleId</name>
+            <label>Merchant google ID</label>
+        </input-field>
+    </card>
+    <card>
+        <title>Apple Pay</title>
+        <input-field type="text">
+            <name>merchantAppleId</name>
+            <label>Merchant Apple ID</label>
+        </input-field>
+    </card>
+</config>

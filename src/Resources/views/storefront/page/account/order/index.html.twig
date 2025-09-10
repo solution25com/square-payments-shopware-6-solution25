@@ -1,0 +1,18 @@
+{% sw_extends '@Storefront/storefront/page/account/order/index.html.twig' %}
+
+{% block page_checkout_confirm_header %}
+    {% if page.errorCode is not null %}
+        {% set errorMessage =  'squarepayments.exception.' ~ page.errorCode %}
+        {% sw_include '@Storefront/storefront/utilities/alert.html.twig' with {
+            type: 'danger',
+            content: errorMessage|trans|sw_sanitize
+        } %}
+    {% endif %}
+    <h1 class="confirm-main-header">
+        {{ "account.completePayment"|trans|sw_sanitize }}
+    </h1>
+    {% if page.extensions.squarepayments %}
+        <script src="{{ asset('bundles/squarepayments/static/js/add-form-elements.js') }}"></script>
+    {% endif %}
+{% endblock %}
+

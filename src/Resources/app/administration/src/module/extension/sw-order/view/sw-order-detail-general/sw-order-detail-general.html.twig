@@ -1,0 +1,15 @@
+{% block sw_order_detail_general %}
+
+<sw-card v-if="showSquareLogTable" title="Square Payments Transactions" position-identifier="squarepayments-transactions">
+    <sw-data-grid
+        :dataSource="squarePaymentsTransactions"
+        :columns="squarePaymentsColumns"
+        :showSelection="false"
+        enable-columns-resize
+        :show-actions="false"
+    />
+</sw-card>
+
+
+    {% parent() %}
+{% endblock %}

@@ -1,0 +1,10 @@
+{% sw_extends '@Storefront/storefront/page/checkout/confirm/index.html.twig' %}
+
+{% block page_checkout_confirm_form_submit %}
+    {{ parent() }}
+    {% if page.extensions.squarepayments %}
+        <input id="squarepayments_transaction_id" type="hidden" name="squarepayments_transaction_id" value="">
+        <input id="squarepayments_payment_status" type="hidden" name="squarepayments_payment_status" value="">
+    {% endif %}
+{% endblock %}
+

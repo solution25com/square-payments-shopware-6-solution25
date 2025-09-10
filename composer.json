@@ -1,0 +1,28 @@
+{
+    "name": "square-payments/square-payments",
+    "description": "square-payments/square-payments",
+    "type": "shopware-platform-plugin",
+    "version": "1.0.2",
+    "license": "MIT",
+    "require": {
+        "shopware/core": "~6.6.0",
+        "square/square": "^31.0"
+    },
+    "extra": {
+        "shopware-plugin-class": "SquarePayments\\SquarePayments",
+        "label": {
+            "de-DE": "Square Zahlungen",
+            "en-GB": "Square Payments"
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "SquarePayments\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "SquarePayments\\Tests\\": "tests/"
+        }
+    }
+}

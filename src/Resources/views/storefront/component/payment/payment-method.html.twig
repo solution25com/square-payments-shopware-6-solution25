@@ -1,0 +1,15 @@
+{% sw_extends '@Storefront/storefront/component/payment/payment-method.html.twig' %}
+
+{% block component_payment_method_label %}
+    {{ parent() }}
+
+    {% if payment.formattedHandlerIdentifier == 'handler_squarepayments_creditcard'
+        and context.paymentMethod.formattedHandlerIdentifier == payment.formattedHandlerIdentifier
+        and page.extensions.squarepayments is defined
+        and page.extensions.squarepayments.template %}
+        {% sw_include page.extensions.squarepayments.template %}
+        {% set mode = config('SquarePayments.config.mode') %}
+        <script src="{{ mode is same as('production') ? page.extensions.squarepayments.productionJS : page.extensions.squarepayments.sandboxJS }}"></script>
+    {% endif %}
+{% endblock %}
+

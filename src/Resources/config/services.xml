@@ -1,0 +1,173 @@
+<?xml version="1.0" ?>
+
+<container xmlns="http://symfony.com/schema/dic/services"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
+
+    <services>
+
+        <!-- Gateways -->
+        <service id="SquarePayments\Gateways\CreditCard" public="true">
+            <argument type="service" id="Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionStateHandler"/>
+            <argument type="service" id="SquarePayments\Service\SquarePaymentsTransactionService"/>
+            <argument type="service" id="SquarePayments.logger"/>
+            <argument type="service" id="SquarePayments\Service\SquareConfigService"/>
+            <argument type="service" id="order_transaction.repository"/>
+            <argument type="service" id="payment_method.repository"/>
+            <argument type="service" id="SquarePayments\Service\TransactionLogger"/>
+            <tag name="shopware.payment.method.payment_handler"/>
+            <tag name="shopware.payment.method.sync"/>
+        </service>
+
+        <service id="SquarePayments\Gateways\GooglePay" public="true">
+            <argument type="service" id="Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionStateHandler"/>
+            <argument type="service" id="SquarePayments\Service\SquarePaymentsTransactionService"/>
+            <argument type="service" id="SquarePayments.logger"/>
+            <tag name="shopware.payment.method.payment_handler"/>
+            <tag name="shopware.payment.method.sync"/>
+        </service>
+
+        <service id="SquarePayments\Gateways\ApplePay" public="true">
+            <argument type="service" id="Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionStateHandler"/>
+            <argument type="service" id="SquarePayments\Service\SquarePaymentsTransactionService"/>
+            <argument type="service" id="SquarePayments.logger"/>
+            <tag name="shopware.payment.method.payment_handler"/>
+            <tag name="shopware.payment.method.sync"/>
+        </service>
+        <!-- End Gateways -->
+
+        <!-- Services -->
+
+        <service id="SquarePayments\Service\SquareConfigService">
+            <argument id="Shopware\Core\System\SystemConfig\SystemConfigService" type="service"/>
+        </service>
+
+        <service id="square.client" class="Square\SquareClient" public="true" />
+        <service id="SquarePayments\Service\SquarePaymentService">
+            <argument type="service" id="SquarePayments\Service\SquareConfigService"/>
+            <argument type="service" id="SquarePayments\Service\SquareApiFactory"/>
+            <argument type="service" id="SquarePayments\Service\ResponseHandleService"/>
+            <argument type="service" id="SquarePayments\Service\SquareCardService"/>
+            <argument type="service" id="SquarePayments.logger"/>
+        </service>
+        <service id="SquarePayments\Service\TransactionLogger">
+            <argument type="service" id="SquarePayments\Service\SquarePaymentsTransactionService"/>
+        </service>
+        <service id="SquarePayments\Service\SquareCustomerService">
+            <argument type="service" id="SquarePayments\Service\SquareApiFactory"/>
+        </service>
+        <service id="SquarePayments\Service\SquareRefundService">
+            <argument type="service" id="SquarePayments\Service\SquareApiFactory"/>
+            <argument type="service" id="SquarePayments\Service\ResponseHandleService"/>
+        </service>
+        <service id="SquarePayments\Service\SquareCardService">
+            <argument type="service" id="SquarePayments\Service\SquareApiFactory"/>
+            <argument type="service" id="SquarePayments\Service\SquareCustomerService"/>
+            <argument type="service" id="customer.repository"/>
+            <argument type="service" id="SquarePayments.logger"/>
+        </service>
+        <service id="SquarePayments\Service\SquareSubscriptionService">
+            <argument type="service" id="SquarePayments\Service\SquareApiFactory"/>
+        </service>
+        <service id="SquarePayments\Service\CustomFieldsInstaller">
+            <argument type="service" id="custom_field_set.repository"/>
+            <argument type="service" id="custom_field_set_relation.repository"/>
+        </service>
+        <service id="SquarePayments\Service\SquarePaymentsTransactionService">
+            <argument type="service" id="squarepayments_transaction.repository"/>
+            <argument type="service" id="order.repository"/>
+            <argument type="service" id="SquarePayments.logger"/>
+        </service>
+        <service id="SquarePayments\Service\SquareApiFactory" public="true">
+            <argument type="service" id="SquarePayments\Service\SquareConfigService"/>
+        </service>
+        <service id="SquarePayments\Service\ResponseHandleService" >
+            <argument type="service" id="SquarePayments.logger"/>
+        </service>
+        <service id="SquarePayments\Service\SquareApiTestService" >
+            <argument type="service" id="SquarePayments.logger"/>
+        </service>
+        <service id="SquarePayments\Service\WebHookService" public="true">
+            <argument type="service" id="SquarePayments\Service\SquareApiFactory"/>
+            <argument type="service" id="squarepayments_transaction.repository"/>
+            <argument type="service" id="order_transaction.repository"/>
+            <argument type="service" id="Shopware\Core\System\StateMachine\StateMachineRegistry"/>
+            <argument type="service" id="SquarePayments\Service\SquareConfigService"/>
+            <argument type="service" id="logger"/>
+        </service>
+        <!-- End Services -->
+
+        <!-- Entity Definitions -->
+        <service id="SquarePayments\Core\Content\Transaction\SquarePaymentsTransactionDefinition">
+            <tag name="shopware.entity.definition" entity="squarepayments_transaction"/>
+        </service>
+        <!-- End Entity Definitions -->
+
+        <!-- Storefront Controllers -->
+        <service id="SquarePayments\Storefront\Controller\SquarePaymentsController" public="true">
+            <argument type="service" id="Shopware\Storefront\Page\GenericPageLoader"/>
+            <argument type="service" id="SquarePayments\Service\SquarePaymentService"/>
+            <call method="setContainer">
+                <argument type="service" id="service_container"/>
+            </call>
+        </service>
+        <service id="SquarePayments\Storefront\Controller\WebHookController" public="true">
+            <argument type="service" id="SquarePayments\Service\WebHookService"/>
+            <call method="setContainer">
+                <argument type="service" id="service_container"/>
+            </call>
+        </service>
+        <service id="SquarePayments\Storefront\Controller\SquareCardController" public="true">
+            <argument type="service" id="Shopware\Storefront\Page\GenericPageLoader"/>
+            <argument type="service" id="SquarePayments\Service\SquareCardService"/>
+           <argument type="service" id="Shopware\Core\System\Country\SalesChannel\CountryRoute"/>
+            <call method="setContainer">
+                <argument type="service" id="service_container"/>
+            </call>
+        </service>
+        <service id="SquarePayments\Controller\SquarePaymentsApiController" public="true">
+            <argument type="service" id="SquarePayments\Service\SquareApiTestService"/>
+            <call method="setContainer">
+                <argument type="service" id="service_container"/>
+            </call>
+        </service>
+        <!-- End Storefront Controllers -->
+
+        <!-- Logger -->
+        <service id="SquarePayments.logger" class="Monolog\Logger">
+            <argument type="string">SquarePayments</argument>
+            <argument type="collection">
+                <argument type="service" id="SquarePayments.rotatingHandler"/>
+            </argument>
+        </service>
+
+        <service id="SquarePayments.rotatingHandler" class="Monolog\Handler\RotatingFileHandler">
+            <argument type="string">%kernel.logs_dir%/SquarePayments-%kernel.environment%.log</argument>
+        </service>
+        <!-- End Logger -->
+
+        <!-- Event Subscribers -->
+        <service id="SquarePayments\EventSubscriber\CheckoutConfirmEventSubscriber">
+            <argument type="service" id="customer.repository"/>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+        <service id="SquarePayments\EventSubscriber\PaymentStatusSubscriber">
+            <argument type="service" id="order_transaction.repository"/>
+            <argument type="service" id="SquarePayments\Service\SquarePaymentsTransactionService"/>
+            <argument type="service" id="SquarePayments\Service\SquarePaymentService"/>
+            <argument type="service" id="SquarePayments\Service\SquareRefundService"/>
+            <argument type="service" id="SquarePayments\Service\TransactionLogger"/>
+            <argument type="service" id="SquarePayments.logger"/>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
+        <!-- End Event Subscribers -->
+
+        <!-- Entity Extensions -->
+        <service id="SquarePayments\Extension\Order\OrderExtension">
+            <tag name="shopware.entity.extension" entity="order"/>
+        </service>
+        <!-- End Entity Extensions -->
+
+    </services>
+</container>
