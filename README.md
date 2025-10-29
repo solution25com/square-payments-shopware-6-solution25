@@ -1,4 +1,8 @@
-composer require square/square "^31.0" in the root directory of your Shopware installation.
+
+## Packagist
+ ```
+composer require solution25/square-payments
+  ```
 
 ## Running Shopware Extension Verifier locally
 
