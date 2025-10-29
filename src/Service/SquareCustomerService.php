@@ -22,7 +22,7 @@ class SquareCustomerService
         $this->client = $client->create();
     }
 
-    public function createCustomer(CreateCustomerRequest $request)
+    public function createCustomer(CreateCustomerRequest $request): mixed
     {
         try {
             $response = $this->client->getCustomersApi()->createCustomer($request);
@@ -32,9 +32,18 @@ class SquareCustomerService
         }
     }
 
-    public function updateCustomer(string $customerId, array $data)
+    /**
+     * @param array<string,mixed> $data
+     */
+    public function updateCustomer(string $customerId, array $data): mixed
     {
-        $request = new UpdateCustomerRequest(...$data);
+        $request = new UpdateCustomerRequest();
+        foreach ($data as $key => $value) {
+            $setter = 'set' . ucfirst($key);
+            if (method_exists($request, $setter)) {
+                $request->$setter($value);
+            }
+        }
         try {
             $response = $this->client->getCustomersApi()->updateCustomer($customerId, $request);
             return $response->getResult();
@@ -43,7 +52,7 @@ class SquareCustomerService
         }
     }
 
-    public function deleteCustomer(string $customerId)
+    public function deleteCustomer(string $customerId): mixed
     {
         try {
             $response = $this->client->getCustomersApi()->deleteCustomer($customerId);
@@ -53,4 +62,3 @@ class SquareCustomerService
         }
     }
 }
-

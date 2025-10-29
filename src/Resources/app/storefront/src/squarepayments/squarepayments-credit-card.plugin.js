@@ -135,7 +135,9 @@ export default class SquarePaymentsCreditCard extends PluginBaseClass {
         this.options.card = await this.options.payments.card();
         await this.options.card.attach('#card-container');
         const saveCardCheckbox = document.querySelector(this.options.saveCardFormClass);
-        saveCardCheckbox.style.display = 'block'
+        if(saveCardCheckbox) {
+            saveCardCheckbox.style.display = 'block'
+        }
     }
 
     _validateFormInputs() {
@@ -263,6 +265,15 @@ export default class SquarePaymentsCreditCard extends PluginBaseClass {
         const buttonId = this.options.payButtonId;
         this._showLoadingButton(true, buttonId);
 
+        if (this.options.isSubscription) {
+            // eslint-disable-next-line no-alert
+            const userConfirmed = confirm(this.options.translations.subscriptionConfirmation || 'This product is part of a recurring payment plan. Your card details will be saved and used for future payments. Do you want to proceed?');
+            if (!userConfirmed) {
+                this._showLoadingButton(false, buttonId);
+                return;
+            }
+        }
+
         const saveCardCheckbox = document.getElementById(this.options.saveCardCheckboxId);
 
         const savedCardsSelect = document.getElementById(this.options.savedCardsId);
@@ -274,7 +285,6 @@ export default class SquarePaymentsCreditCard extends PluginBaseClass {
             }
         }
 
-
         // Validate form inputs
         const validation = this._validateFormInputs();
         if (!validation.valid) {
@@ -283,6 +293,7 @@ export default class SquarePaymentsCreditCard extends PluginBaseClass {
             return;
         }
         if (!this.options.card) {
+            // eslint-disable-next-line no-alert
             alert(this.options.translations.cardFieldsNotLoaded || 'Card fields are not loaded yet. Please wait a few seconds.');
             this._showLoadingButton(false, buttonId);
             return;
@@ -363,13 +374,13 @@ export default class SquarePaymentsCreditCard extends PluginBaseClass {
         }
 
         let bodyParams = {
-
             cardId,
             saveCard,
             orderId,
             currency: this.options.currency,
             amount: this.options.amount,
-            intent: this.options.intent
+            intent: this.options.intent,
+            isSubscription: this.options.isSubscription || false,
         };
 
         if(verificationResult){
@@ -385,6 +396,7 @@ export default class SquarePaymentsCreditCard extends PluginBaseClass {
             .then(res => res.json())
             .then(data => {
                 if (!data.status || data.status !== 'success') {
+                    // eslint-disable-next-line no-alert
                     alert(data.message || this.options.translations.paymentSetupFailed || 'Payment setup failed. Please try again.');
                     this._showLoadingButton(false, this.options.payButtonId);
                     return;
@@ -397,12 +409,12 @@ export default class SquarePaymentsCreditCard extends PluginBaseClass {
             })
             .catch(err => {
                 console.error('Payment setup error:', err);
+                // eslint-disable-next-line no-alert
                 alert(this.options.translations.paymentSetupError || 'An error occurred during payment setup. Please try again.');
                 this._showLoadingButton(false, this.options.payButtonId);
             });
     }
 
-    // Update hidden form fields
     _updateHiddenFields(data) {
 
         document.getElementById('squarepayments_transaction_id').value = data.payment.id;
@@ -417,5 +429,24 @@ export default class SquarePaymentsCreditCard extends PluginBaseClass {
             document.getElementById('confirmOrderForm').appendChild(paymentDataInput);
         }
         paymentDataInput.value = data.payment ? JSON.stringify(data.payment) : '';
+        let isSubscriptionInput = document.getElementById('squarepayments_is_subscription');
+        if (!isSubscriptionInput) {
+            isSubscriptionInput = document.createElement('input');
+            isSubscriptionInput.type = 'hidden';
+            isSubscriptionInput.id = 'squarepayments_is_subscription';
+            isSubscriptionInput.name = 'squarepayments_is_subscription';
+            document.getElementById('confirmOrderForm').appendChild(isSubscriptionInput);
+        }
+        isSubscriptionInput.value = this.options.isSubscription || false ? '1' : '0';
+        let isPaymentCardInput = document.getElementById('squarepayments_subscription_card');
+        if (!isPaymentCardInput) {
+            isPaymentCardInput = document.createElement('input');
+            isPaymentCardInput.type = 'hidden';
+            isPaymentCardInput.id = 'squarepayments_subscription_card';
+            isPaymentCardInput.name = 'squarepayments_subscription_card';
+            document.getElementById('confirmOrderForm').appendChild(isPaymentCardInput);
+        }
+        isPaymentCardInput.value = this.options.isSubscription || false ?
+            isPaymentCardInput.value = data.card ? JSON.stringify(data.card) : '' : '';
     }
 }

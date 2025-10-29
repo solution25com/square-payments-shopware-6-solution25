@@ -11,13 +11,16 @@ class SquarePaymentsTransactionEntity extends Entity
 {
     use EntityIdTrait;
 
+    /** @var string */
     protected $id;
-    protected string $orderId;
+    protected ?string $orderId;
     protected string $paymentMethodName;
     protected string $transactionId;
     protected string $status;
     protected bool $isSubscription;
-    protected string $subscriptionTransactionId;
+    /** @var array<string,mixed>|null */
+    protected ?array $subscriptionCard = null;
+    /** @var array<string,mixed> */
     protected array $customFields = [];
 
     public function getId(): string
@@ -30,7 +33,7 @@ class SquarePaymentsTransactionEntity extends Entity
         $this->id = $id;
     }
 
-    public function getOrderId(): string
+    public function getOrderId(): ?string
     {
         return $this->orderId;
     }
@@ -79,21 +82,25 @@ class SquarePaymentsTransactionEntity extends Entity
         $this->isSubscription = $isSubscription;
     }
 
-    public function getSubscriptionTransactionId(): string
+    /** @return array<string,mixed>|null */
+    public function getSubscriptionCard(): ?array
     {
-        return $this->subscriptionTransactionId;
+        return $this->subscriptionCard;
     }
 
-    public function setSubscriptionTransactionId(string $subscriptionTransactionId): void
+    /** @param array<string,mixed>|null $subscriptionCard */
+    public function setSubscriptionCard(?array $subscriptionCard): void
     {
-        $this->subscriptionTransactionId = $subscriptionTransactionId;
+        $this->subscriptionCard = $subscriptionCard;
     }
 
+    /** @return array<string,mixed> */
     public function getCustomFields(): array
     {
         return $this->customFields;
     }
 
+    /** @param array<string,mixed> $customFields */
     public function setCustomFields(array $customFields): void
     {
         $this->customFields = $customFields;

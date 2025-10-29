@@ -9,17 +9,26 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Uuid\Uuid;
+use SquarePayments\Core\Content\Transaction\SquarePaymentsTransactionCollection;
+use Shopware\Core\Checkout\Order\OrderCollection;
 
 class SquarePaymentsTransactionService
 {
-
+    /**
+     * @param EntityRepository<SquarePaymentsTransactionCollection> $squarePaymentsTransactionRepository
+     * @param EntityRepository<OrderCollection> $orderRepository
+     */
     public function __construct(
         private readonly EntityRepository $squarePaymentsTransactionRepository,
         private readonly EntityRepository $orderRepository,
         private readonly LoggerInterface $logger
-    ) {}
+    ) {
+    }
 
-    public function addTransaction($orderId, $paymentMethodName, $transactionId, $status, $context): string
+    /**
+     * @param array<string,mixed> $subscriptionCard
+     */
+    public function addTransaction(string $orderId, string $paymentMethodName, string $transactionId, string $status, Context $context, array $subscriptionCard = []): string
     {
         $tableSquarePaymentsId = Uuid::randomHex();
         $this->logger->debug('Adding transaction for order id ' . $orderId . ' to ' . $tableSquarePaymentsId);
@@ -30,6 +39,8 @@ class SquarePaymentsTransactionService
                 'orderId' => $orderId,
                 'paymentMethodName' => $paymentMethodName,
                 'transactionId' => $transactionId,
+                'subscriptionCard' => $subscriptionCard,
+                'isSubscription' => !empty($subscriptionCard),
                 'status' => $status,
                 'createdAt' => (new \DateTime())->format('Y-m-d H:i:s')
             ]
@@ -63,6 +74,9 @@ class SquarePaymentsTransactionService
         }
     }
 
+    /**
+     * @return EntityRepository<SquarePaymentsTransactionCollection>
+     */
     public function getRepository(): EntityRepository
     {
         return $this->squarePaymentsTransactionRepository;

@@ -1,4 +1,5 @@
 <?php
+
 namespace SquarePayments\Service;
 
 use Square\SquareClient;
@@ -16,6 +17,10 @@ class SquareApiTestService
         $this->systemConfigService = $systemConfigService;
     }
 
+    /**
+     * @param array<string,mixed> $payload
+     * @return array<string,mixed>
+     */
     public function checkLocation(array $payload): array
     {
         try {
@@ -60,6 +65,13 @@ class SquareApiTestService
     {
         $envSuffix = $environment === 'production' ? 'Production' : 'Sandbox';
         $configKey = "SquarePayments.config.{$key}{$envSuffix}";
-        return $this->systemConfigService->get($configKey, $salesChannelId);
+        $value = $this->systemConfigService->get($configKey, $salesChannelId);
+        if ($value === null) {
+            return null;
+        }
+        if (is_scalar($value)) {
+            return (string)$value;
+        }
+        return null;
     }
 }

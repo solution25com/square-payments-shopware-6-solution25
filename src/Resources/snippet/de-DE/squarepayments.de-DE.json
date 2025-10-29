@@ -20,6 +20,7 @@
       "authenticationError": "Bei der Authentifizierung ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.",
       "requiredField": "Bitte füllen Sie {fieldName} aus.",
       "requiredCheckbox": "Bitte aktivieren Sie {fieldName}.",
+      "subscriptionConfirmation": "Dieses Produkt ist Teil eines wiederkehrenden Zahlungsplans. Ihre Kartendaten werden gespeichert und für zukünftige Zahlungen verwendet. Möchten Sie fortfahren?",
       "processing": "Wird verarbeitet...",
 
       "savedCards": "Gespeicherte Karten",

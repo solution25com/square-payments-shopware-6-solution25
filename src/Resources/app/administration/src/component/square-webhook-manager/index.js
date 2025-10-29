@@ -30,7 +30,7 @@ Component.register('square-webhook-manager', {
                 this.isActive = data.active;
                 this.webhookId = data.webhookId;
                 this.error = null;
-            } catch (e) {
+            } catch {
                 this.error = 'Failed to fetch webhook status.';
             } finally {
                 this.isLoading = false;
@@ -48,7 +48,7 @@ Component.register('square-webhook-manager', {
                 } else {
                     this.error = data.message || 'Failed to create webhook.';
                 }
-            } catch (e) {
+            } catch {
                 this.error = 'Failed to create webhook.';
             } finally {
                 this.isLoading = false;
@@ -66,7 +66,7 @@ Component.register('square-webhook-manager', {
                 } else {
                     this.error = data.message || 'Failed to delete webhook.';
                 }
-            } catch (e) {
+            } catch {
                 this.error = 'Failed to delete webhook.';
             } finally {
                 this.isLoading = false;
@@ -74,4 +74,3 @@ Component.register('square-webhook-manager', {
         }
     }
 });
-

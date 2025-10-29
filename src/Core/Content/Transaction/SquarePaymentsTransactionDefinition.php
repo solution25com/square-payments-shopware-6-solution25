@@ -13,6 +13,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Required;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\IdField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\StringField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\CustomFields;
+use Shopware\Core\Framework\DataAbstractionLayer\Field\JsonField;
 
 class SquarePaymentsTransactionDefinition extends EntityDefinition
 {
@@ -41,7 +42,7 @@ class SquarePaymentsTransactionDefinition extends EntityDefinition
             (new StringField('payment_method_name', 'paymentMethodName'))->addFlags(new ApiAware()),
             (new StringField('transaction_id', 'transactionId'))->addFlags(new ApiAware(), new Required()),
             (new BoolField('is_subscription', 'isSubscription'))->addFlags(new ApiAware()),
-            (new StringField('subscription_transaction_id', 'subscriptionTransactionId'))->addFlags(new ApiAware()),
+            (new JsonField('subscription_card', 'subscriptionCard'))->addFlags(new ApiAware()),
             (new StringField('status', 'status'))->addFlags(new ApiAware(), new Required()),
             new CustomFields(),
         ]);

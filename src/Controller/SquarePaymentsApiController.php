@@ -2,6 +2,9 @@
 
 namespace SquarePayments\Controller;
 
+use Shopware\Core\Framework\Context;
+use Shopware\Core\System\SalesChannel\SalesChannelContext;
+use SquarePayments\Service\SquarePaymentService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -12,11 +15,10 @@ use SquarePayments\Service\SquareApiTestService;
 #[Route(defaults: ['_routeScope' => ['api']])]
 class SquarePaymentsApiController extends AbstractController
 {
-    private SquareApiTestService $apiTestService;
-
-    public function __construct(SquareApiTestService $apiTestService)
-    {
-        $this->apiTestService = $apiTestService;
+    public function __construct(
+        private readonly SquareApiTestService $apiTestService,
+        private readonly SquarePaymentService $paymentService
+    ) {
     }
 
     #[Route(path: '/api/_action/square-payments/config', name: 'api.square_payments.config', methods: ['GET'])]
@@ -40,5 +42,19 @@ class SquarePaymentsApiController extends AbstractController
         $payload = json_decode($request->getContent(), true);
         $result = $this->apiTestService->checkLocation($payload);
         return new JsonResponse($result);
+    }
+    #[Route(
+        path: '/api/_action/squarepayments/requiring-payment',
+        name: 'api.squarepayments.requiring_payment',
+        methods: ['POST'],
+        defaults: ['_acl' => ['square_payments:write']]
+    )]
+    public function requiringPayment(Request $request, Context $context): JsonResponse
+    {
+        $payload = json_decode($request->getContent(), true);
+        $cardId = $payload['cardId'] ?? null;
+        $orderId = $payload['orderId'] ?? null;
+        $squareCustomerId = $payload['squareCustomerId'] ?? null;
+        return new JsonResponse($this->paymentService->requiringPayment($cardId, $orderId, $squareCustomerId, $context));
     }
 }

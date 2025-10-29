@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SquarePayments\EventSubscriber;
 
 use Psr\Log\LoggerInterface;
+use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionEntity;
 use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionStates;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
@@ -12,6 +13,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\System\StateMachine\Event\StateMachineTransitionEvent;
 use Shopware\Core\System\StateMachine\StateMachineException;
 use Square\Models\RefundPaymentRequest;
+use SquarePayments\Core\Content\Transaction\SquarePaymentsTransactionEntity;
 use SquarePayments\Library\TransactionStatuses;
 use SquarePayments\Service\SquarePaymentsTransactionService;
 use SquarePayments\Service\SquarePaymentService;
@@ -20,10 +22,13 @@ use SquarePayments\Gateways\CreditCard;
 use SquarePayments\Service\TransactionLogger;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Square\Models\Money;
+use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionCollection;
 
 class PaymentStatusSubscriber implements EventSubscriberInterface
 {
-    /** @var EntityRepository */
+    /**
+     * @var EntityRepository<OrderTransactionCollection>
+     */
     private EntityRepository $orderTransactionRepository;
 
     private SquarePaymentsTransactionService $transactionService;
@@ -34,6 +39,9 @@ class PaymentStatusSubscriber implements EventSubscriberInterface
 
     private ?LoggerInterface $logger;
     private TransactionLogger $transactionLogger;
+    /**
+     * @param EntityRepository<OrderTransactionCollection> $orderTransactionRepository
+     */
     public function __construct(
         EntityRepository $orderTransactionRepository,
         SquarePaymentsTransactionService $transactionService,
@@ -72,13 +80,20 @@ class PaymentStatusSubscriber implements EventSubscriberInterface
         $criteria->addAssociation('order.currency');
         $transaction = $this->orderTransactionRepository->search($criteria, $context)->first();
 
-        if (!$transaction || $transaction->getPaymentMethod()->getHandlerIdentifier() !== CreditCard::class) {
+        if (!$transaction) {
             return;
         }
-
-        $squareTx = $this->transactionService->getTransactionByOrderId($transaction->getOrder()->getId(), $context);
-        if (!$squareTx) {
-            $this->logger?->warning('No Square transaction found for order ID: ' . $transaction->getOrder()->getId());
+        $paymentMethod = $transaction->getPaymentMethod();
+        if (!$paymentMethod || $paymentMethod->getHandlerIdentifier() !== CreditCard::class) {
+            return;
+        }
+        $order = $transaction->getOrder();
+        if (!$order) {
+            return;
+        }
+        $squareTx = $this->transactionService->getTransactionByOrderId($order->getId(), $context);
+        if (!$squareTx || !$squareTx instanceof SquarePaymentsTransactionEntity) {
+            $this->logger?->warning('No Square transaction found for order ID: ' . $order->getId());
             return;
         }
 
@@ -88,61 +103,58 @@ class PaymentStatusSubscriber implements EventSubscriberInterface
 
         switch (true) {
             case $fromState === OrderTransactionStates::STATE_AUTHORIZED && $toState === OrderTransactionStates::STATE_PAID:
-                // Capture the payment
                 $captureResult = $this->squarePaymentService->capturePayment($squareTxId);
                 if ($captureResult['status'] === 'error') {
                     $this->logger?->error('Capture failed for Square transaction ID: ' . $squareTxId . ' - ' . $captureResult['message']);
                     throw new StateMachineException(400, 'SQUAREPAYMENTS_CAPTURE_FAILED', $captureResult['message']);
                 }
-
+                $orderId = $order->getId();
+                $paymentMethodName = (string)($paymentMethod->getName() ?? '');
                 $squareTransactionId = $this->transactionService->addTransaction(
-                    $transaction->getOrder()->getId(),
-                    $transaction->getPaymentMethod()->getName(),
+                    $orderId,
+                    $paymentMethodName,
                     $squareTxId,
                     TransactionStatuses::PAID->value,
                     $context
                 );
-                $this->transactionLogger->logTransaction(TransactionStatuses::PAID->value, $captureResult['payment'], $transaction->getOrder()->getId(), $context, $squareTransactionId);
+                $this->transactionLogger->logTransaction(TransactionStatuses::PAID->value, $captureResult['payment'], $orderId, $context, $squareTransactionId);
                 break;
-
             case $fromState === OrderTransactionStates::STATE_AUTHORIZED && $toState === OrderTransactionStates::STATE_CANCELLED:
-                // Void the payment
                 $voidResult = $this->squarePaymentService->voidPayment($squareTxId);
                 if ($voidResult['status'] === 'error') {
                     $this->logger?->error('Void failed for Square transaction ID: ' . $squareTxId . ' - ' . $voidResult['message']);
                     throw new StateMachineException(400, 'SQUAREPAYMENTS_VOID_FAILED', $voidResult['message']);
                 }
+                $orderId = $order->getId();
+                $paymentMethodName = (string)($paymentMethod->getName() ?? '');
                 $squareTransactionId = $this->transactionService->addTransaction(
-                    $transaction->getOrder()->getId(),
-                    $transaction->getPaymentMethod()->getName(),
+                    $orderId,
+                    $paymentMethodName,
                     $squareTxId,
                     TransactionStatuses::VOIDED->value,
                     $context
                 );
-                $this->transactionLogger->logTransaction(TransactionStatuses::PAID->value, $voidResult['payment'], $transaction->getOrder()->getId(), $context, $squareTransactionId);
+                $this->transactionLogger->logTransaction(TransactionStatuses::PAID->value, $voidResult['payment'], $orderId, $context, $squareTransactionId);
                 break;
-
             case $fromState === OrderTransactionStates::STATE_PAID && $toState === OrderTransactionStates::STATE_REFUNDED:
-                // Refund the payment (full refund assumed)
                 $amount = $transaction->getAmount()->getTotalPrice();
-                $currency = $transaction->getOrder()->getCurrency()->getIsoCode();
-
+                $currencyEntity = $order->getCurrency();
+                $currency = $currencyEntity ? $currencyEntity->getIsoCode() : null;
                 $money = new Money();
                 $money->setAmount((int) ($amount * 100));
                 $money->setCurrency($currency);
-
                 $refundData = new RefundPaymentRequest($this->squarePaymentService->generateIdempotencyKey(), $money);
                 $refundData->setPaymentId($squareTxId);
                 $refundResult = $this->squareRefundService->refundPayment($refundData);
-
                 if ($refundResult['status'] === "error") {
                     $this->logger?->error('Refund failed for Square transaction ID: ' . $squareTxId . ' - ' . $refundResult['message']);
                     throw new StateMachineException(400, 'SQUAREPAYMENTS_REFUND_FAILED', $refundResult['message']);
                 }
-
+                $orderId = $order->getId();
+                $paymentMethodName = (string)($paymentMethod->getName() ?? '');
                 $squareTransactionId = $this->transactionService->addTransaction(
-                    $transaction->getOrder()->getId(),
-                    $transaction->getPaymentMethod()->getName(),
+                    $orderId,
+                    $paymentMethodName,
                     $squareTxId,
                     TransactionStatuses::REFUND->value,
                     $context
@@ -153,7 +165,7 @@ class PaymentStatusSubscriber implements EventSubscriberInterface
                 $refundResult['payment']['card_details']['card']['exp_month'] = $customFields['expiry_month'] ?? null;
                 $refundResult['payment']['card_details']['card']['exp_year'] = $customFields['expiry_year'] ?? null;
                 $refundResult['payment']['card_details']['card']['last_4'] = $customFields['card_last_4'] ?? null;
-                $this->transactionLogger->logTransaction(TransactionStatuses::REFUND->value, $refundResult['payment'], $transaction->getOrder()->getId(), $context, $squareTransactionId);
+                $this->transactionLogger->logTransaction(TransactionStatuses::REFUND->value, $refundResult['payment'], $orderId, $context, $squareTransactionId);
                 break;
 
             default:

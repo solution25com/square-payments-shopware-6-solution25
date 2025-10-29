@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace SquarePayments\Storefront\Controller;
 
@@ -69,8 +71,10 @@ class SquareCardController extends StorefrontController
             'sandboxJS' => EnvironmentUrl::SQUARE_JS_SANDBOX->value,
         ]);
 
-        $page->addExtension(    'squarepayments',
-            $templateVariables);
+        $page->addExtension(
+            'squarepayments',
+            $templateVariables
+        );
 
 
 

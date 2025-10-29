@@ -16,23 +16,31 @@ use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionStat
 use Shopware\Core\System\StateMachine\StateMachineRegistry;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
+use SquarePayments\Core\Content\Transaction\SquarePaymentsTransactionCollection;
+use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionCollection;
 
 class WebHookService
 {
     private SquareApiFactory $client;
+    /** @var EntityRepository<SquarePaymentsTransactionCollection> */
     private EntityRepository $transactionRepository;
+    /** @var EntityRepository<OrderTransactionCollection> */
     private EntityRepository $orderTransactionRepository;
     private StateMachineRegistry $stateMachineRegistry;
     private SquareConfigService $squareConfigService;
     private ?LoggerInterface $logger;
 
+    /**
+     * @param EntityRepository<SquarePaymentsTransactionCollection> $transactionRepository
+     * @param EntityRepository<OrderTransactionCollection> $orderTransactionRepository
+     */
     public function __construct(
-        SquareApiFactory     $client,
-        EntityRepository     $transactionRepository,
-        EntityRepository     $orderTransactionRepository,
+        SquareApiFactory $client,
+        EntityRepository $transactionRepository,
+        EntityRepository $orderTransactionRepository,
         StateMachineRegistry $stateMachineRegistry,
-        SquareConfigService  $squareConfigService,
-        ?LoggerInterface     $logger = null
+        SquareConfigService $squareConfigService,
+        ?LoggerInterface $logger = null
     ) {
         $this->client = $client;
         $this->transactionRepository = $transactionRepository;
@@ -42,7 +50,7 @@ class WebHookService
         $this->logger = $logger;
     }
 
-    public function accept(Request $request): bool
+    public function accept(Request $request, Context $context): bool
     {
         $payload = json_decode($request->getContent(), true);
         if (!$payload || !isset($payload['type'])) {
@@ -52,10 +60,10 @@ class WebHookService
         switch ($payload['type']) {
             case 'payment.created':
             case 'payment.updated':
-                return $this->handlePayment($payload);
+                return $this->handlePayment($payload, $context);
             case 'refund.created':
-                case 'refund.updated':
-                return $this->handleRefund($payload);
+            case 'refund.updated':
+                return $this->handleRefund($payload, $context);
             default:
                 // Unknown event type
                 return false;
@@ -71,7 +79,11 @@ class WebHookService
             $this->logger?->warning('No Square transaction found for payment ID: ' . $paymentId);
             return false;
         }
-        $orderId = $transactionEntity->getOrderId();
+        $orderId = $transactionEntity->getOrderId() ?? null;
+        if (!$orderId) {
+            $this->logger?->warning('No order ID found for payment ID: ' . $paymentId);
+            return false;
+        }
         $orderTransactionCriteria = new Criteria();
         $orderTransactionCriteria->addFilter(new EqualsFilter('orderId', $orderId));
         $orderTransactionCriteria->addAssociation('stateMachineState');
@@ -80,30 +92,40 @@ class WebHookService
             $this->logger?->warning('No order transaction found for order ID: ' . $orderId);
             return false;
         }
-        $currentStatus = $orderTransaction->getStateMachineState()->getTechnicalName();
+        $stateMachineState = $orderTransaction->getStateMachineState();
+        $currentStatus = $stateMachineState ? $stateMachineState->getTechnicalName() : null;
+        if (!$currentStatus) {
+            $this->logger?->warning('No state machine state found for order transaction ID: ' . ($orderTransaction->getUniqueIdentifier() ?: 'unknown'));
+            return false;
+        }
         $toState = $this->mapWebhookStatusToShopware($webhookStatus);
         if ($currentStatus === $toState) {
             return true;
         }
-        if($currentStatus == 'refunded' || $currentStatus == 'cancelled') {
+        if ($currentStatus == 'refunded' || $currentStatus == 'cancelled') {
             return true;
         }
         if (!$toState) {
             $this->logger?->warning('Unknown webhook status: ' . $webhookStatus);
             return false;
         }
-        if($toState == 'refunded' && $currentStatus != 'paid') {
+        if ($toState == 'refunded' && $currentStatus != 'paid') {
             $this->logger?->warning('Cannot transition to refunded from current status: ' . $currentStatus);
             return false;
         }
-        if($toState == 'paid' && $currentStatus != 'authorized') {
+        if ($toState == 'paid' && $currentStatus != 'authorized') {
             $this->logger?->warning('Cannot transition to paid from current status: ' . $currentStatus);
             return false;
         }
         try {
+            $orderTransactionId = $orderTransaction->getId() ?: null;
+            if (!$orderTransactionId) {
+                $this->logger?->warning('No ID found for order transaction entity.');
+                return false;
+            }
             $translation = new Transition(
                 'order_transaction',
-                $orderTransaction->getId(),
+                $orderTransactionId,
                 $toState,
                 'stateId'
             );
@@ -127,7 +149,10 @@ class WebHookService
         return $map[$webhookStatus] ?? null;
     }
 
-    private function handlePayment(array $payload): bool
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function handlePayment(array $payload, Context $context): bool
     {
         $data = $payload['data']['object']['payment'] ?? null;
         if (!$data) {
@@ -137,11 +162,13 @@ class WebHookService
             'payment_id' => $data['id'] ?? null,
             'status' => $data['status'] ?? null,
         ];
-        $context = Context::createDefaultContext();
         $this->syncOrderPaymentStatusWithWebhook($fields['payment_id'], $fields['status'], $context);
         return !empty($fields['payment_id']);
     }
-    private function handleRefund(array $payload): bool
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function handleRefund(array $payload, Context $context): bool
     {
         $data = $payload['data']['object']['refund'] ?? null;
         if (!$data) {
@@ -152,11 +179,13 @@ class WebHookService
             'payment_id' => $data['payment_id'] ?? null,
             'status' => $data['status'] ?? null,
         ];
-        $context = Context::createDefaultContext();
         $this->syncOrderPaymentStatusWithWebhook($fields['payment_id'], $fields['status'], $context);
         return !empty($fields['refund_id']);
     }
 
+    /**
+     * @return array<string,mixed>
+     */
     public function save(Request $request, string $environment): array
     {
         $baseUrl = $request->getSchemeAndHttpHost();
@@ -195,6 +224,9 @@ class WebHookService
         return $response->getStatusCode() === 200;
     }
 
+    /**
+     * @return array<string,mixed>
+     */
     public function getStatus(string $environment): array
     {
         $webhookId = $this->squareConfigService->get($environment . 'WebhookSubscriptionId');
@@ -214,4 +246,3 @@ class WebHookService
         return ['active' => false, 'message' => 'Failed to create webhook subscription'];
     }
 }
-

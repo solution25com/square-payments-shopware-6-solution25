@@ -6,7 +6,9 @@ use Shopware\Core\System\SystemConfig\SystemConfigService;
 
 class SquareConfigService
 {
-    public function __construct(private readonly SystemConfigService $systemConfigService) {}
+    public function __construct(private readonly SystemConfigService $systemConfigService)
+    {
+    }
 
     public function get(string $configName, ?string $salesChannelId = null): mixed
     {

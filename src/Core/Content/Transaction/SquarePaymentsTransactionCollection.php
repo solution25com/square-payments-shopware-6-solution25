@@ -7,6 +7,7 @@ namespace SquarePayments\Core\Content\Transaction;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 
 /**
+ * @extends EntityCollection<SquarePaymentsTransactionEntity>
  * @method void add(SquarePaymentsTransactionEntity $entity)
  * @method void set(string $key, SquarePaymentsTransactionEntity $entity)
  * @method SquarePaymentsTransactionEntity[] getIterator()
@@ -22,4 +23,3 @@ class SquarePaymentsTransactionCollection extends EntityCollection
         return SquarePaymentsTransactionEntity::class;
     }
 }
-

@@ -19,6 +19,9 @@ class TransactionLogger
         $this->squarePaymentsTransactionService = $squarePaymentsTransactionService;
     }
 
+    /**
+     * @param array<string,mixed> $responseData
+     */
     public function logTransaction(
         string $type,
         array $responseData,
@@ -56,6 +59,9 @@ class TransactionLogger
         }
     }
 
+    /**
+     * @param array<string,mixed> $newTransaction
+     */
     public function updateSquareTransactionCustomFields(
         array $newTransaction,
         string $transactionId,

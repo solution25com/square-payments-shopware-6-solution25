@@ -2,6 +2,7 @@
 
 namespace SquarePayments\Extension\Order;
 
+use Shopware\Core\Checkout\Order\OrderDefinition;
 use SquarePayments\Core\Content\Transaction\SquarePaymentsTransactionDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityExtension;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\ApiAware;
@@ -19,7 +20,11 @@ class OrderExtension extends EntityExtension
 
     public function getDefinitionClass(): string
     {
-        return \Shopware\Core\Checkout\Order\OrderDefinition::class;
+        return OrderDefinition::class;
+    }
+
+    public function getEntityName(): string
+    {
+        return 'order';
     }
 }
-

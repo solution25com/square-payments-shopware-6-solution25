@@ -120,41 +120,41 @@
     <div>
         <button class="btn btn-light mt-4" id="addCardButton"><i
                     class="bi bi-plus-lg"></i>{{ 'squarepayments.savedCards.addCard' | trans }}</button>
-        <form class="row g-3" id="addCardForm" style="display: none">
+        <form class="row g-3 " id="addCardForm" style="display: none">
             <div class="col-md-6">
                 <label class="form-label"
                        for="billingFirstName">{{ 'squarepayments.savedCards.firstName' | trans }}</label>
                 <input type="text" class="form-control" id="billingFirstName">
-                <div id="billingFirstName-error" class="error-message"
-                     style="display: none;">{{ 'squarepayments.savedCards.pleaseEnterValidFirstName' | trans }}</div>
+                <div id="billingFirstName-error" class="error-message " style="display: none"
+                     >{{ 'squarepayments.savedCards.pleaseEnterValidFirstName' | trans }}</div>
             </div>
 
             <div class="col-md-6">
                 <label class="form-label"
                        for="billingLastName">{{ 'squarepayments.savedCards.lastName' | trans }}</label>
                 <input type="text" class="form-control" id="billingLastName">
-                <div id="billingLastName-error" class="error-message"
-                     style="display: none;">{{ 'squarepayments.savedCards.pleaseEnterValidLastName' | trans }}</div>
+                <div id="billingLastName-error" class="error-message " style="display: none"
+                     >{{ 'squarepayments.savedCards.pleaseEnterValidLastName' | trans }}</div>
             </div>
 
             <div class="col-12">
                 <label class="form-label" for="billingEmail">{{ 'squarepayments.savedCards.email' | trans }}</label>
                 <input type="email" class="form-control" id="billingEmail">
-                <div id="billingEmail-error" class="error-message"
-                     style="display: none;">{{ 'squarepayments.savedCards.pleaseEnterValidEmail' | trans }}</div>
+                <div id="billingEmail-error" class="error-message " style="display: none"
+                     >{{ 'squarepayments.savedCards.pleaseEnterValidEmail' | trans }}</div>
 
             </div>
             <div class="col-12">
                 <label class="form-label" for="billingAddress">Address</label>
                 <input type="text" class="form-control" id="billingAddress" placeholder="1234 Main St">
-                <div id="billingAddress-error" class="error-message"
-                     style="display: none;">{{ 'squarepayments.savedCards.pleaseEnterValidAdress' | trans }}</div>
+                <div id="billingAddress-error" class="error-message" style="display: none"
+                     >{{ 'squarepayments.savedCards.pleaseEnterValidAdress' | trans }}</div>
             </div>
             <div class="col-md-6">
                 <label for="Billing">City</label>
                 <input type="text" class="form-control" id="billingCity">
-                <div id="billingCity-error" class="error-message"
-                     style="display: none;">{{ 'squarepayments.savedCards.pleaseEnterValidCity' | trans }}</div>
+                <div id="billingCity-error" class="error-message " style="display: none"
+                     >{{ 'squarepayments.savedCards.pleaseEnterValidCity' | trans }}</div>
             </div>
             <div class="col-md-4">
                 <label for="billingCountry">
@@ -186,14 +186,14 @@
                         </option>
                     {% endfor %}
                 </select>
-                <div id="billingCountry-error" class="error-message"
-                     style="display: none;">{{ 'squarepayments.savedCards.pleaseEnterValidCountry' | trans }}</div>
+                <div id="billingCountry-error" class="error-message " style="display: none"
+                     >{{ 'squarepayments.savedCards.pleaseEnterValidCountry' | trans }}</div>
             </div>
             <div class="col-md-2">
                 <label class="form-label" for="billingZip">{{ 'squarepayments.savedCards.zip' |trans }}</label>
                 <input type="text" class="form-control" id="billingZip">
-                <div id="billingZip-error" class="error-message"
-                     style="display: none;">{{ 'squarepayments.savedCards.pleaseEnterValidZip' | trans }}</div>
+                <div id="billingZip-error" class="error-message " style="display: none"
+                     >{{ 'squarepayments.savedCards.pleaseEnterValidZip' | trans }}</div>
             </div>
             <hr class="my-4"/>
             <div id="payment-form">
@@ -212,97 +212,4 @@
     <script src="{{ mode is same as('production') ? page.extensions.squarepayments.productionJS : page.extensions.squarepayments.sandboxJS }}"></script>
     <template data-square-payments-saved-cards
               data-square-payments-saved-cards-options='{{ squarePaymentsSavedCardsPluginOptions| json_encode |escape('html_attr') }}'></template>
-
-    <style>
-        :root {
-            --card-radius: 16px;
-            --card-height: 210px;
-        }
-
-        .paycard {
-            position: relative;
-            width: 100%;
-            height: var(--card-height);
-            border-radius: var(--card-radius);
-            overflow: hidden;
-            color: #fff;
-            perspective: 1000px;
-        }
-
-        .paycard .inner {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            transform-style: preserve-3d;
-            transition: transform .6s cubic-bezier(.2, .6, .2, 1);
-        }
-
-        .paycard .face {
-            position: absolute;
-            inset: 0;
-            backface-visibility: hidden;
-            padding: 1.1rem 1.2rem;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-
-        .paycard .front {
-            background: radial-gradient(120% 120% at 0% 0%, #6c5ce7 0%, #341f97 55%, #150b42 100%);
-        }
-
-        .paycard.visa .front {
-            background: radial-gradient(130% 130% at 100% 0%, #0061df 0%, #012a7c 55%, #04143a 100%);
-        }
-
-        .paycard.mastercard .front {
-            background: radial-gradient(130% 130% at 0% 100%, #e23b3b 0%, #c31432 45%, #240b36 100%);
-        }
-
-        .card-icon {
-            width: 44px;
-            height: 32px;
-            border-radius: 6px;
-            max-width: 35px;
-            object-fit: contain;
-            margin-right: 8px;
-        }
-
-
-        .num {
-            letter-spacing: .12em;
-            font-weight: 600;
-            font-size: 1rem;
-        }
-
-        .muted {
-            opacity: .9;
-            font-size: .9rem;
-        }
-
-        .brand {
-            display: inline-flex;
-            align-items: center;
-            gap: .4rem;
-            font-weight: 700;
-            letter-spacing: .06em;
-        }
-
-        .card-item {
-            position: relative;
-        }
-
-
-        .mask {
-            font-variant-numeric: tabular-nums;
-        }
-
-        .cursor-pointer {
-            cursor: pointer;
-        }
-        #card-container{
-            width: 350px;
-        }
-    </style>
 {% endblock %}
-

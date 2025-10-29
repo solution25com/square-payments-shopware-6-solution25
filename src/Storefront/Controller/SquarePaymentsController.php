@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace SquarePayments\Storefront\Controller;
 
@@ -16,10 +18,9 @@ use Symfony\Component\Routing\Attribute\Route;
 class SquarePaymentsController extends StorefrontController
 {
     public function __construct(
-        readonly GenericPageLoader    $genericPageLoader,
+        readonly GenericPageLoader $genericPageLoader,
         readonly SquarePaymentService $paymentService
-    )
-    {
+    ) {
     }
     #[Route(
         path: '/squarepayments/authorize-payment',
@@ -29,6 +30,10 @@ class SquarePaymentsController extends StorefrontController
     )]
     public function authorizePayment(Request $request, SalesChannelContext $context): JsonResponse
     {
+        $customer = $context->getCustomer();
+        if (!$customer) {
+            return new JsonResponse(['success' => false]);
+        }
         return new JsonResponse($this->paymentService->authorizePayment($request, $context));
     }
 }

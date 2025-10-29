@@ -22,7 +22,8 @@
         <service id="SquarePayments\Gateways\GooglePay" public="true">
             <argument type="service" id="Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionStateHandler"/>
             <argument type="service" id="SquarePayments\Service\SquarePaymentsTransactionService"/>
-            <argument type="service" id="SquarePayments.logger"/>
+            <argument type="service" id="order_transaction.repository"/>
+            <argument type="service" id="payment_method.repository"/>
             <tag name="shopware.payment.method.payment_handler"/>
             <tag name="shopware.payment.method.sync"/>
         </service>
@@ -30,7 +31,8 @@
         <service id="SquarePayments\Gateways\ApplePay" public="true">
             <argument type="service" id="Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionStateHandler"/>
             <argument type="service" id="SquarePayments\Service\SquarePaymentsTransactionService"/>
-            <argument type="service" id="SquarePayments.logger"/>
+            <argument type="service" id="order_transaction.repository"/>
+            <argument type="service" id="payment_method.repository"/>
             <tag name="shopware.payment.method.payment_handler"/>
             <tag name="shopware.payment.method.sync"/>
         </service>
@@ -49,6 +51,10 @@
             <argument type="service" id="SquarePayments\Service\ResponseHandleService"/>
             <argument type="service" id="SquarePayments\Service\SquareCardService"/>
             <argument type="service" id="SquarePayments.logger"/>
+            <argument type="service" id="Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionStateHandler"/>
+            <argument type="service" id="SquarePayments\Service\SquarePaymentsTransactionService"/>
+            <argument type="service" id="order.repository"/>
+            <argument type="service" id="SquarePayments\Service\TransactionLogger"/>
         </service>
         <service id="SquarePayments\Service\TransactionLogger">
             <argument type="service" id="SquarePayments\Service\SquarePaymentsTransactionService"/>
@@ -65,9 +71,6 @@
             <argument type="service" id="SquarePayments\Service\SquareCustomerService"/>
             <argument type="service" id="customer.repository"/>
             <argument type="service" id="SquarePayments.logger"/>
-        </service>
-        <service id="SquarePayments\Service\SquareSubscriptionService">
-            <argument type="service" id="SquarePayments\Service\SquareApiFactory"/>
         </service>
         <service id="SquarePayments\Service\CustomFieldsInstaller">
             <argument type="service" id="custom_field_set.repository"/>
@@ -86,6 +89,7 @@
         </service>
         <service id="SquarePayments\Service\SquareApiTestService" >
             <argument type="service" id="SquarePayments.logger"/>
+            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
         </service>
         <service id="SquarePayments\Service\WebHookService" public="true">
             <argument type="service" id="SquarePayments\Service\SquareApiFactory"/>
@@ -127,6 +131,7 @@
         </service>
         <service id="SquarePayments\Controller\SquarePaymentsApiController" public="true">
             <argument type="service" id="SquarePayments\Service\SquareApiTestService"/>
+            <argument type="service" id="SquarePayments\Service\SquarePaymentService"/>
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>
@@ -148,7 +153,6 @@
 
         <!-- Event Subscribers -->
         <service id="SquarePayments\EventSubscriber\CheckoutConfirmEventSubscriber">
-            <argument type="service" id="customer.repository"/>
             <tag name="kernel.event_subscriber"/>
         </service>
         <service id="SquarePayments\EventSubscriber\PaymentStatusSubscriber">

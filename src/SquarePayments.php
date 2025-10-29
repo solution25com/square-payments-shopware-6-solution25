@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace SquarePayments;
 
@@ -8,7 +10,6 @@ use Shopware\Core\Framework\Plugin\Context\DeactivateContext;
 use Shopware\Core\Framework\Plugin\Context\InstallContext;
 use Shopware\Core\Framework\Plugin\Context\UninstallContext;
 use Shopware\Core\Framework\Plugin\Context\UpdateContext;
-use SquarePayments\Service\CustomFieldsInstaller;
 use SquarePayments\PaymentMethods\PaymentMethodInterface;
 use SquarePayments\PaymentMethods\PaymentMethods;
 use Doctrine\DBAL\Connection;
@@ -68,7 +69,7 @@ class SquarePayments extends Plugin
 
     private function addPaymentMethod(PaymentMethodInterface $paymentMethod, Context $context): void
     {
-        $paymentMethodId = $this->getPaymentMethodId($paymentMethod->getPaymentHandler());
+        $paymentMethodId = $this->getPaymentMethodId($paymentMethod->getPaymentHandler(), $context);
         $pluginIdProvider = $this->getDependency(PluginIdProvider::class);
         $pluginId = $pluginIdProvider->getPluginIdByBaseClass(get_class($this), $context);
         if ($paymentMethodId) {
@@ -99,7 +100,7 @@ class SquarePayments extends Plugin
     private function setPaymentMethodIsActive(bool $active, Context $context, PaymentMethodInterface $paymentMethod): void
     {
         $paymentRepository = $this->getDependency('payment_method.repository');
-        $paymentMethodId = $this->getPaymentMethodId($paymentMethod->getPaymentHandler());
+        $paymentMethodId = $this->getPaymentMethodId($paymentMethod->getPaymentHandler(), $context);
         if (!$paymentMethodId) {
             return;
         }
@@ -110,43 +111,40 @@ class SquarePayments extends Plugin
         $paymentRepository->update([$paymentMethodData], $context);
     }
 
-    private function getPaymentMethodId(string $paymentMethodHandler): ?string
+    private function getPaymentMethodId(string $paymentMethodHandler, Context $context): ?string
     {
         $paymentRepository = $this->getDependency('payment_method.repository');
         $paymentCriteria = (new Criteria())->addFilter(new EqualsFilter(
             'handlerIdentifier',
             $paymentMethodHandler
         ));
-        $paymentIds = $paymentRepository->searchIds($paymentCriteria, Context::createDefaultContext());
+        $paymentIds = $paymentRepository->searchIds($paymentCriteria, $context);
         if ($paymentIds->getTotal() === 0) {
             return null;
         }
         return $paymentIds->getIds()[0];
     }
 
-    private function getDependency($name): mixed
+    private function getDependency(string $name): mixed
     {
+        if ($this->container === null) {
+            throw new \RuntimeException('Container is not set.');
+        }
         return $this->container->get($name);
     }
 
     private function dropSquarePaymentsTables(): void
     {
+        if ($this->container === null) {
+            throw new \RuntimeException('Container is not set.');
+        }
         $connection = $this->container->get(Connection::class);
+        if (!$connection instanceof Connection) {
+            throw new \RuntimeException('Could not retrieve Doctrine DBAL Connection.');
+        }
         $connection->executeStatement('DROP TABLE IF EXISTS `squarepayments_transaction`, `squarepayments_vaulted_shopper`;');
         $connection->executeStatement('DELETE FROM `migration` WHERE `class` LIKE :square_payments;', [
             'square_payments' => '%SquarePayments%',
         ]);
-    }
-
-    private function getCustomFieldsInstaller(): CustomFieldsInstaller
-    {
-        if ($this->container->has(CustomFieldsInstaller::class)) {
-            return $this->container->get(CustomFieldsInstaller::class);
-        }
-
-        return new CustomFieldsInstaller(
-            $this->container->get('custom_field_set.repository'),
-            $this->container->get('custom_field_set_relation.repository')
-        );
     }
 }

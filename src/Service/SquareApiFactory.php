@@ -11,7 +11,8 @@ final class SquareApiFactory
 {
     public function __construct(
         private readonly SquareConfigService $squareConfigService
-    ) {}
+    ) {
+    }
 
     public function create(): SquareClient
     {

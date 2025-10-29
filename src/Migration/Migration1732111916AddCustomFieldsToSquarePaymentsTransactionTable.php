@@ -17,9 +17,7 @@ class Migration1732111916AddCustomFieldsToSquarePaymentsTransactionTable extends
     public function update(Connection $connection): void
     {
         // Only add the column if it does not exist
-        $schemaManager = method_exists($connection, 'createSchemaManager')
-            ? $connection->createSchemaManager()
-            : $connection->getSchemaManager();
+        $schemaManager = $connection->createSchemaManager();
         $columns = $schemaManager->listTableColumns('squarepayments_transaction');
         if (!array_key_exists('custom_fields', $columns)) {
             $connection->executeStatement('ALTER TABLE `squarepayments_transaction` ADD COLUMN `custom_fields` JSON NULL;');
@@ -31,4 +29,3 @@ class Migration1732111916AddCustomFieldsToSquarePaymentsTransactionTable extends
         // No destructive changes
     }
 }
-

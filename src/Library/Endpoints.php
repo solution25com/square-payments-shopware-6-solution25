@@ -14,6 +14,7 @@ abstract class Endpoints
     protected const CARDS = 'CARDS';
     protected const LOCATIONS = 'LOCATIONS';
 
+    /** @var array<string,array{method:string,url:string}> */
     private static array $endpoints = [
         self::PAYMENTS => [
             'method' => 'POST',
@@ -45,11 +46,13 @@ abstract class Endpoints
         ]
     ];
 
+    /** @return array{method:string,url:string} */
     protected static function getEndpoint(string $endpoint): array
     {
         return self::$endpoints[$endpoint];
     }
 
+    /** @return array{method:string,url:string} */
     public static function getUrl(string $endpoint, ?string $id = null): array
     {
         $endpointDetails = self::getEndpoint($endpoint);
@@ -60,7 +63,13 @@ abstract class Endpoints
         ];
     }
 
-    public static function getUrlDynamicParam(string $endpoint, ?array $params = [], ?array $queryParam = []): array
+    /**
+     * @param string $endpoint
+     * @param array<int|string,mixed> $params
+     * @param array<string,mixed> $queryParam
+     * @return array{method:string,url:string}
+     */
+    public static function getUrlDynamicParam(string $endpoint, array $params = [], array $queryParam = []): array
     {
         $endpointDetails = self::getEndpoint($endpoint);
         $baseUrl = $endpointDetails['url'];

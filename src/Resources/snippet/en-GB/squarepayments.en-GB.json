@@ -20,6 +20,7 @@
       "authenticationError": "An error occurred during authentication. Please try again.",
       "requiredField": "Please fill out {fieldName}.",
       "requiredCheckbox": "Please check {fieldName}.",
+      "subscriptionConfirmation": "This product is part of a recurring payment plan. Your card details will be saved and used for future payments. Do you want to proceed?",
       "processing": "Processing...",
 
       "cardholder": "Cardholder",
@@ -54,7 +55,8 @@
       "pleaseEnterValidCity": "Please enter a valid city.",
       "pleaseEnterValidZip": "Please enter a valid ZIP / postal code.",
       "pleaseEnterValidCountry": "Please select a valid country.",
-      "pleaseEnterValidState": "Please select a valid state / region."
+      "pleaseEnterValidState": "Please select a valid state / region.",
+      "pleaseEnterValidAdress": "Please enter a valid Address"
     }
   }
 }

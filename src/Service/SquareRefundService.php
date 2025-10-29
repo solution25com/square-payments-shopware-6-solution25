@@ -17,8 +17,11 @@ class SquareRefundService
         $this->client = $client->create();
         $this->responseHandleService = $responseHandleService;
     }
-
-    public function refundPayment(RefundPaymentRequest $data)
+    /**
+     * @param RefundPaymentRequest $data
+     * @return array<string,mixed>
+     */
+    public function refundPayment(RefundPaymentRequest $data): array
     {
         try {
             $response = $this->client->getRefundsApi()->refundPayment($data);
@@ -29,4 +32,3 @@ class SquareRefundService
         }
     }
 }
-

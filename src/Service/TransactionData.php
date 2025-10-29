@@ -47,6 +47,9 @@ class TransactionData
         $this->statusCode = $statusCode;
     }
 
+    /**
+     * @return array<string,mixed>
+     */
     public function toArray(): array
     {
         return [

@@ -84,6 +84,7 @@ export default class SquarePaymentsSavedCards extends PluginBaseClass {
                     console.error('[SquarePayments] Card ID not found for deletion.');
                     return;
                 }
+                // eslint-disable-next-line no-alert
                 if (!confirm(this.options.translations.confirmCardDeletion || 'Are you sure you want to delete this card?')) {
                     return;
                 }
@@ -98,6 +99,7 @@ export default class SquarePaymentsSavedCards extends PluginBaseClass {
                     return response.json();
                 }).then(data => {
                     if (!data.success) {
+                        // eslint-disable-next-line no-alert
                         alert(data.message || this.options.translations.deleteCardFailed || 'Failed to delete card. Please try again.');
                         this._showLoadingButton(false, this.options.deleteCardButtonId);
                         return;
@@ -219,7 +221,7 @@ export default class SquarePaymentsSavedCards extends PluginBaseClass {
 
 
 
-    async _generateTokenAndCreateCard(token) {
+    async _generateTokenAndCreateCard() {
         const buttonId = this.options.saveCardButtonId;
         this._showLoadingButton(true, buttonId);
 
@@ -274,6 +276,7 @@ export default class SquarePaymentsSavedCards extends PluginBaseClass {
 
         }  catch (error) {
             console.error('[SquarePayments] Tokenization error', error);
+            // eslint-disable-next-line no-alert
             alert(this.options.translations.cardVerificationFailed || 'Card information could not be verified.');
             this._showLoadingButton(false, buttonId);
     }
@@ -302,6 +305,7 @@ export default class SquarePaymentsSavedCards extends PluginBaseClass {
                 }
                 let data = await response.json();
                 if (!data.success) {
+                    // eslint-disable-next-line no-alert
                     alert(data.message || this.options.translations.saveCardFailed || 'Failed to save card. Please try again.');
                     this._showLoadingButton(false, this.options.saveCardButtonId);
                     return;
@@ -310,6 +314,7 @@ export default class SquarePaymentsSavedCards extends PluginBaseClass {
                 setTimeout(() => window.location.reload(), 300);
             } catch (error) {
                 console.error('[SquarePayments] Card save error:', error);
+                // eslint-disable-next-line no-alert
                 alert(this.options.translations.saveCardError || '[SquarePayments] An error occurred while saving the card. Please try again.');
                 this._showLoadingButton(false, this.options.saveCardButtonId);
             }
@@ -365,6 +370,4 @@ export default class SquarePaymentsSavedCards extends PluginBaseClass {
             }
         }
     }
-
-
 }

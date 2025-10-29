@@ -4,6 +4,7 @@ namespace SquarePayments\Service;
 
 use Exception;
 use Psr\Log\LoggerInterface;
+use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -16,22 +17,24 @@ use Square\Models\CreateCustomerRequest;
 use Square\SquareClient;
 use Square\Exceptions\ApiException;
 use Symfony\Component\HttpFoundation\Request;
+use Shopware\Core\Checkout\Customer\CustomerCollection;
 
 class SquareCardService
 {
     private SquareClient $client;
 
+    /** @param EntityRepository<CustomerCollection> $customerRepository */
     public function __construct(
-        SquareApiFactory                       $client,
+        SquareApiFactory $client,
         private readonly SquareCustomerService $customerService,
-        private readonly EntityRepository      $customerRepository,
+        private readonly EntityRepository $customerRepository,
         private readonly LoggerInterface $logger
-    )
-    {
+    ) {
         $this->client = $client->create();
     }
 
-    public function getSavedCards($context): array
+    /** @return array<string,mixed> */
+    public function getSavedCards(SalesChannelContext $context): array
     {
         try {
             $customerId = $context->getCustomer()?->getId();
@@ -60,9 +63,9 @@ class SquareCardService
                     $cardsArray = array_map(static function ($c) {
                         if (is_object($c) && method_exists($c, 'jsonSerialize')) {
                             $serialized = $c->jsonSerialize();
-                            return is_array($serialized) ? $serialized : json_decode(json_encode($serialized), true);
+                            return is_array($serialized) ? $serialized : json_decode((string)json_encode($serialized), true);
                         }
-                        return is_array($c) ? $c : json_decode(json_encode($c), true);
+                        return is_array($c) ? $c : json_decode((string)json_encode($c), true);
                     }, $cards ?? []);
 
                     return ['cards' => $cardsArray];
@@ -70,7 +73,7 @@ class SquareCardService
 
                 if (method_exists($result, 'jsonSerialize')) {
                     $serialized = $result->jsonSerialize();
-                    $data = is_array($serialized) ? $serialized : json_decode(json_encode($serialized), true);
+                    $data = is_array($serialized) ? $serialized : json_decode((string)json_encode($serialized), true);
 
                     return ['cards' => $data['cards'] ?? []];
                 }
@@ -81,7 +84,46 @@ class SquareCardService
         return ['cards' => []];
     }
 
-    public function addCard(Request $request, SalesChannelContext $context)
+    /** @return array<string,mixed> */
+    public function getSavedCard(SalesChannelContext $context, string $cardId): array
+    {
+        try {
+            $customerId = $context->getCustomer()?->getId();
+            if (!$customerId) {
+                return ['card' => null];
+            }
+            $squareCustomerId = $this->getSquareCustomerId($customerId, $context->getContext());
+            if (!$squareCustomerId) {
+                return ['card' => null];
+            }
+            $response = $this->client->getCardsApi()->retrieveCard($cardId);
+            $result = $response->getResult();
+            $this->logger->debug('Get saved card', ['request' => $result]);
+
+            if (is_object($result)) {
+                if (method_exists($result, 'getCard')) {
+                    $card = $result->getCard();
+                    if (is_object($card) && method_exists($card, 'jsonSerialize')) {
+                        $serialized = $card->jsonSerialize();
+                        return ['card' => is_array($serialized) ? $serialized : json_decode((string)json_encode($serialized), true)];
+                    }
+                    return ['card' => is_array($card) ? $card : json_decode((string)json_encode($card), true)];
+                }
+
+                if (method_exists($result, 'jsonSerialize')) {
+                    $serialized = $result->jsonSerialize();
+                    $data = is_array($serialized) ? $serialized : json_decode((string)json_encode($serialized), true);
+
+                    return ['card' => $data['card'] ?? null];
+                }
+            }
+        } catch (Exception $e) {
+        }
+        return ['card' => null];
+    }
+
+    /** @return array<string,mixed> */
+    public function addCard(Request $request, SalesChannelContext $context): array
     {
         $customer = $context->getCustomer();
         if (!$customer) {
@@ -107,14 +149,13 @@ class SquareCardService
         $card = new Card();
         if (isset($payload['cardholderName'])) {
             $card->setCardholderName($payload['cardholderName']);
-        }
-        else if(isset($payload['billingAddress'])){
+        } elseif (isset($payload['billingAddress'])) {
             $billingAddress = $payload['billingAddress'];
             $customerName = trim(($billingAddress['firstName'] ?? '') . ' ' . ($billingAddress['lastName'] ?? ''));
             $card->setCardholderName($customerName);
         }
         $card->setCustomerId($squareCustomerId);
-        if(isset($payload['billingAddress'], $payload['cardToken'])) {
+        if (isset($payload['billingAddress'], $payload['cardToken'])) {
             $address = $this->getAddress($payload['billingAddress']);
             $card->setBillingAddress($address);
         }
@@ -125,32 +166,34 @@ class SquareCardService
             // Return raw json-serialized response
             if (\is_object($result) && method_exists($result, 'jsonSerialize')) {
                 $serialized = $result->jsonSerialize();
-                return \is_array($serialized) ? $serialized : json_decode(json_encode($serialized), true);
+                return \is_array($serialized) ? $serialized : json_decode((string)json_encode($serialized), true);
             }
-            return \is_array($result) ? $result : json_decode(json_encode($result), true);
+            return \is_array($result) ? $result : json_decode((string)json_encode($result), true);
         } catch (ApiException $e) {
             $this->logger->debug('Card creation error', ['message' => $e->getMessage()]);
             return ['error' => $e->getMessage()];
         }
     }
 
-    public function deleteCard(string $cardId, $context)
+    /** @return array<string,mixed> */
+    public function deleteCard(string $cardId, SalesChannelContext $context): array
     {
         try {
             $response = $this->client->getCardsApi()->disableCard($cardId);
-            return $response->getResult()->jsonSerialize();
+            return (array)$response->getResult()->jsonSerialize();
         } catch (Exception $e) {
             return ['error' => $e->getMessage()];
         }
     }
 
+    /** @param array<string,mixed> $payload */
     public function getOrCreateSquareCustomerId(string $shopwareCustomerId, array $payload, Context $context): ?string
     {
         // Load customer to get current custom fields
         $criteria = new Criteria([$shopwareCustomerId]);
         $criteria->addAssociation('customFields');
         $customer = $this->customerRepository->search($criteria, $context)->first();
-        $customFields = $customer?->getCustomFields() ?? [];
+        $customFields = ($customer instanceof CustomerEntity ? $customer->getCustomFields() : []) ?? [];
         $squareId = $customFields['squarepayments_square_customer_id'] ?? null;
         if ($squareId) {
             $this->logger->debug('Found square customer id in custom fieelds', ['squareid' => $squareId]);
@@ -161,7 +204,7 @@ class SquareCardService
 
 
         // Create Square customer
-        if(isset($payload['billingAddress'])){
+        if (isset($payload['billingAddress'])) {
             $address = $this->getAddress($payload['billingAddress']);
             $request->setAddress($address);
             $request->setGivenName($payload['billingAddress']['givenName'] ?? null);
@@ -196,11 +239,13 @@ class SquareCardService
         return $id;
     }
 
-    public function getSquareCustomerId(string $shopwareCustomerId, Context $context): ?string{
+    /** @return string|null */
+    public function getSquareCustomerId(string $shopwareCustomerId, Context $context): ?string
+    {
         $criteria = new Criteria([$shopwareCustomerId]);
         $criteria->addAssociation('customFields');
         $customer = $this->customerRepository->search($criteria, $context)->first();
-        $customFields = $customer?->getCustomFields() ?? [];
+        $customFields = ($customer instanceof CustomerEntity ? $customer->getCustomFields() : []) ?? [];
         $squareId = $customFields['squarepayments_square_customer_id'] ?? null;
         if ($squareId) {
             $this->logger->debug('Found square customer id in custom fieelds', ['squareid' => $squareId]);
@@ -209,6 +254,7 @@ class SquareCardService
         return null;
     }
 
+    /** @return array<string,mixed> */
     private function parsePayload(Request $request): array
     {
         $contentType = (string)$request->headers->get('Content-Type');
@@ -237,11 +283,8 @@ class SquareCardService
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
 
-    /**
-     * @param $billingAddress
-     * @return SqAddress
-     */
-    public function getAddress($billingAddress): SqAddress
+    /** @param array<string,mixed> $billingAddress */
+    public function getAddress(array $billingAddress): SqAddress
     {
         $address = new Address();
         $address->setFirstName($billingAddress['firstName'] ?? null);

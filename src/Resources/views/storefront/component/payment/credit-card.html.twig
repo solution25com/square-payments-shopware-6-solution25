@@ -27,10 +27,17 @@
         authenticationError: ('squarepayments.savedCards.authenticationError' | trans),
         requiredField: ('squarepayments.savedCards.requiredField' | trans),
         requiredCheckbox: ('squarepayments.savedCards.requiredCheckbox' | trans),
-        processing: ('squarepayments.savedCards.processing' | trans)
+        processing: ('squarepayments.savedCards.processing' | trans),
+        subscriptionConfirmation: ('squarepayments.savedCards.subscriptionConfirmation' | trans)
     }
 } %}
-
+{% set isSubscription = false %}
+{% for lineItem in page.cart.lineItems %}
+    {% if lineItem.payload is defined and lineItem.payload.isSubscription is defined and lineItem.payload.isSubscription %}
+        {% set isSubscription = true %}
+    {% endif %}
+{% endfor %}
+{% set squarePaymentsCreditCardPluginOptions = squarePaymentsCreditCardPluginOptions|merge( { isSubscription: isSubscription } ) %}
 
 <div class="payment-form">
     <div class="payment-form squarepayments-credit-card">
@@ -52,99 +59,23 @@
                     <input type="checkbox" id="saveCard" name="saveCard" >
                     <label for="saveCard">{{ 'squarepayments.savedCards.saveCard' | trans }}</label>
                 </div>
-                {% set squarePaymentsCreditCardPluginOptions = squarePaymentsCreditCardPluginOptions|merge( {
-                    billing:{
-                        givenName: context.customer.firstName ?? '',
-                        familyName: context.customer.lastName ?? '',
-                        email: context.customer.email ?? '',
-                        phone: context.customer.defaultBillingAddress.phoneNumber ?? '',
-                        street: context.customer.defaultBillingAddress.street ?? '',
-                        addressLine1: context.customer.defaultBillingAddress.additionalAddressLine1 ?? '',
-                        addressLine2: context.customer.defaultBillingAddresss.additionalAddressLine2 ?? '',
-                        city: context.customer.defaultBillingAddress.city ?? '',
-                        state:  context.customer.defaultBillingAddress.countryState.shortCode ?? '',
-                        country: context.customer.defaultBillingAddress.country.iso ?? '',
-                    }}) %}
             {% endif %}
+            {% set squarePaymentsCreditCardPluginOptions = squarePaymentsCreditCardPluginOptions|merge( {
+                billing:{
+                    givenName: context.customer.firstName ?? '',
+                    familyName: context.customer.lastName ?? '',
+                    email: context.customer.email ?? '',
+                    phone: context.customer.defaultBillingAddress.phoneNumber ?? '',
+                    street: context.customer.defaultBillingAddress.street ?? '',
+                    addressLine1: context.customer.defaultBillingAddress.additionalAddressLine1 ?? '',
+                    addressLine2: context.customer.defaultBillingAddresss.additionalAddressLine2 ?? '',
+                    city: context.customer.defaultBillingAddress.city ?? '',
+                    state:  context.customer.defaultBillingAddress.countryState.shortCode ?? '',
+                    country: context.customer.defaultBillingAddress.country.iso ?? '',
+                }}) %}
         </div>
         <div id="step_up"></div>
     </div>
 </div>
 <template data-square-payments-credit-card
           data-square-payments-credit-card-options='{{ squarePaymentsCreditCardPluginOptions|json_encode|escape('html_attr') }}'></template>
-<style>
-    /* card list item wrapper */
-    /* small helpers */
-    :root {
-        --card-radius: 16px;
-        --card-height: 210px;
-    }
-    .paycard {
-        position: relative;
-        width: 100%;
-        height: var(--card-height);
-        border-radius: var(--card-radius);
-        overflow: hidden;
-        color: #fff;
-        perspective: 1000px;
-    }
-    .paycard .inner {
-        width: 100%;
-        height: 100%;
-        position: relative;
-        transform-style: preserve-3d;
-        transition: transform 0.6s cubic-bezier(0.2, 0.6, 0.2, 1);
-    }
-    .paycard .face {
-        position: absolute;
-        inset: 0;
-        backface-visibility: hidden;
-        padding: 1.1rem 1.2rem;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-    }
-    .paycard .front {
-        background: radial-gradient(120% 120% at 0% 0%, #6c5ce7 0%, #341f97 55%, #150b42 100%);
-    }
-    .paycard.visa .front {
-        background: radial-gradient(130% 130% at 100% 0%, #0061df 0%, #012a7c 55%, #04143a 100%);
-    }
-    .paycard.mastercard .front {
-        background: radial-gradient(130% 130% at 0% 100%, #e23b3b 0%, #c31432 45%, #240b36 100%);
-    }
-    .card-icon {
-        width: 44px;
-        height: 32px;
-        border-radius: 6px;
-        max-width: 35px;
-        object-fit: contain;
-        margin-right: 8px;
-    }
-    .num {
-        letter-spacing: 0.12em;
-        font-weight: 600;
-        font-size: 1rem;
-    }
-    .muted {
-        opacity: 0.9;
-        font-size: 0.9rem;
-    }
-    .brand {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-    }
-    .card-item {
-        position: relative;
-    }
-    .mask {
-        font-variant-numeric: tabular-nums;
-    }
-    .cursor-pointer {
-        cursor: pointer;
-    }
-
-</style>

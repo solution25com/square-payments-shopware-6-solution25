@@ -2,7 +2,9 @@
 
 namespace SquarePayments\Gateways;
 
+use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionEntity;
 use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionStateHandler;
+use Shopware\Core\Checkout\Payment\PaymentMethodEntity;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
 use SquarePayments\Library\TransactionStatuses;
 use SquarePayments\Library\TransactionType;
@@ -22,21 +24,27 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use SquarePayments\Service\TransactionLogger;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionCollection;
+use Shopware\Core\Checkout\Payment\PaymentMethodCollection;
 
 class CreditCard extends AbstractPaymentHandler
 {
-
-
+    /**
+     * @param EntityRepository<OrderTransactionCollection> $orderTransactionRepository
+     * @param EntityRepository<PaymentMethodCollection> $paymentMethodRepository
+     */
     public function __construct(
+        /** @param EntityRepository<OrderTransactionCollection> $orderTransactionRepository */
         private readonly OrderTransactionStateHandler $transactionStateHandler,
         private readonly SquarePaymentsTransactionService $transactionService,
         private readonly LoggerInterface $logger,
         private readonly SquareConfigService $squareConfigService,
+        /** @param EntityRepository<OrderTransactionCollection> $orderTransactionRepository */
         private readonly EntityRepository $orderTransactionRepository,
+        /** @param EntityRepository<PaymentMethodCollection> $paymentMethodRepository */
         private readonly EntityRepository $paymentMethodRepository,
         private readonly TransactionLogger $transactionLogger
     ) {
-
     }
 
     public function pay(
@@ -51,6 +59,8 @@ class CreditCard extends AbstractPaymentHandler
         $status = $dataBag->get('squarepayments_payment_status');
         $paymentData = $dataBag->get('square_payment_data');
         $transactionId = $dataBag->get('squarepayments_transaction_id');
+        $isSubscription = $dataBag->get('squarepayments_is_subscription') == "1";
+        $subscriptionCard = $dataBag->get('squarepayments_subscription_card') ?? "";
 
         if ($status !== 'success' || !$transactionId) {
             $this->logger->warning('Payment failed: Invalid status or transaction ID', [
@@ -64,11 +74,6 @@ class CreditCard extends AbstractPaymentHandler
         $paymentMode = $this->squareConfigService->get('paymentMode');
         $paymentMethodName = $this->getPaymentMethodName($transaction, $context);
         $orderId = $this->getOrderIdFromTransaction($transaction->getOrderTransactionId(), $context);
-
-        $redirectUrl = $this->shouldRedirect($paymentMode);
-        if ($redirectUrl) {
-            return new RedirectResponse($redirectUrl);
-        }
 
         switch ($paymentMode) {
             case 'AUTHORIZE_AND_CAPTURE':
@@ -86,7 +91,8 @@ class CreditCard extends AbstractPaymentHandler
             $paymentMethodName,
             $transactionId,
             $status,
-            $context
+            $context,
+            $isSubscription ? json_decode($subscriptionCard, true) : []
         );
         $paymentData = is_array($paymentData) ? $paymentData : json_decode($paymentData, true);
         $this->transactionLogger->logTransaction($status, $paymentData, $orderId, $context, $squareTransactionId);
@@ -98,7 +104,7 @@ class CreditCard extends AbstractPaymentHandler
         string $paymentMethodId,
         Context $context
     ): bool {
-        return /*$type === PaymentHandlerType::PAYMENT &&*/ $paymentMethodId === $this->getPaymentMethodId();
+        return $paymentMethodId === $this->getPaymentMethodId($context);
     }
 
     public function finalize(
@@ -148,13 +154,13 @@ class CreditCard extends AbstractPaymentHandler
         }
     }
 
-    private function getPaymentMethodId(): ?string
+    private function getPaymentMethodId(Context $context): ?string
     {
         $criteria = new Criteria();
         $criteria->addFilter(new EqualsFilter('handlerIdentifier', 'SquarePayments\Gateways\CreditCard'));
-        $paymentMethod = $this->paymentMethodRepository->search($criteria, Context::createDefaultContext())->first();
+        $paymentMethod = $this->paymentMethodRepository->search($criteria, $context)->first();
 
-        return $paymentMethod ? $paymentMethod->getId() : null;
+        return $paymentMethod instanceof PaymentMethodEntity ? $paymentMethod->getId() : null;
     }
 
     private function getOrderIdFromTransaction(string $orderTransactionId, Context $context): string
@@ -163,7 +169,7 @@ class CreditCard extends AbstractPaymentHandler
         $criteria->addAssociation('order');
         $orderTransaction = $this->orderTransactionRepository->search($criteria, $context)->first();
 
-        if ($orderTransaction && $orderTransaction->getOrder()) {
+        if ($orderTransaction instanceof OrderTransactionEntity && $orderTransaction->getOrder()) {
             return $orderTransaction->getOrder()->getId();
         }
 
@@ -175,27 +181,10 @@ class CreditCard extends AbstractPaymentHandler
         $criteria = new Criteria([$transaction->getOrderTransactionId()]);
         $orderTransaction = $this->orderTransactionRepository->search($criteria, $context)->first();
 
-        if ($orderTransaction && $orderTransaction->getPaymentMethod()) {
-            return $orderTransaction->getPaymentMethod()->getName();
+        if ($orderTransaction instanceof OrderTransactionEntity && $orderTransaction->getPaymentMethod()) {
+            return (string)($orderTransaction->getPaymentMethod()->getName() ?? '');
         }
 
         return (new CreditCardPaymentMethod())->getName();
-    }
-
-    private function shouldRedirect(string $paymentMode): ?string
-    {
-        // Example: Redirect to Square payment gateway if not in production mode or specific logic
-//        $config = $this->configRepository->search(
-//            (new Criteria())->addFilter(new EqualsFilter('name', 'SquarePayments.config.mode')),
-//            Context::createDefaultContext()
-//        )->first();
-//
-//        $mode = $config ? $config->get('configuration')['value'] ?? 'sandbox' : 'sandbox';
-//        if ($mode === 'sandbox') {
-//            // Simulate redirect to Square sandbox (replace with actual API call)
-//            return 'https://sandbox.squareup.com/payment/gateway'; // Placeholder URL
-//        }
-
-        return null; // No redirect in production for now
     }
 }

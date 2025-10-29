@@ -1,7 +1,7 @@
 $color_1: #fff;
 
 
-&:root {
+:root {
   --card-radius: 16px;
   --card-height: 210px;
 }
@@ -75,4 +75,7 @@ $color_1: #fff;
 }
 .cursor-pointer {
   cursor: pointer;
+}
+.hidden {
+  display: none;
 }
