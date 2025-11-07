@@ -1,4 +1,3 @@
-import './scss/_saved-cards.scss';
 import SquarePaymentsCreditCard from "./squarepayments/squarepayments-credit-card.plugin";
 import SquarePaymentsSavedCards from "./squarepayments/squarepayments-saved-cards.plugin";
 

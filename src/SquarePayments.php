@@ -147,4 +147,9 @@ class SquarePayments extends Plugin
             'square_payments' => '%SquarePayments%',
         ]);
     }
+
+    public function executeComposerCommands(): bool
+    {
+        return true;
+    }
 }

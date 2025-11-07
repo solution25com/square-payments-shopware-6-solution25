@@ -59,10 +59,11 @@ export default class SquarePaymentsSavedCards extends PluginBaseClass {
     _setupEventListeners() {
 
         const addCardButton = document.getElementById(this.options.addCardButtonId);
-        if (addCardButton) {
+        const addCardForm = document.getElementById(this.options.addCardFormId);
+        if (addCardButton && addCardForm) {
+            addCardForm.style.display = 'none';
             addCardButton.addEventListener('click', () => {
-                const addCardForm = document.getElementById(this.options.addCardFormId);
-                addCardForm.style.display =   window.getComputedStyle(addCardForm).display === 'none' ? 'flex' : 'none';
+                addCardForm.style.display = window.getComputedStyle(addCardForm).display === 'none' ? 'flex' : 'none';
                 addCardButton.textContent = addCardForm.style.display === 'none' ? this.options.translations.addCard || '+ Add Card' : this.options.translations.cancelCard || '- Cancel';
             });
         }

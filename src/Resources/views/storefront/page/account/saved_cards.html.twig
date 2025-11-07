@@ -45,6 +45,8 @@
         <h1>{{ 'squarepayments.savedCards.savedCards' | trans }}</h1>
     </div>
 
+    <link rel="stylesheet" href="{{ asset('bundles/squarepayments/storefront/css/saved_cards.css') }}">
+
     {% if cards is empty %}
         <p>{{ 'squarepayments.savedCards.noSavedCards' | trans }}</p>
     {% else %}
@@ -120,12 +122,12 @@
     <div>
         <button class="btn btn-light mt-4" id="addCardButton"><i
                     class="bi bi-plus-lg"></i>{{ 'squarepayments.savedCards.addCard' | trans }}</button>
-        <form class="row g-3 " id="addCardForm" style="display: none">
+        <form class="row g-3 hidden" id="addCardForm">
             <div class="col-md-6">
                 <label class="form-label"
                        for="billingFirstName">{{ 'squarepayments.savedCards.firstName' | trans }}</label>
                 <input type="text" class="form-control" id="billingFirstName">
-                <div id="billingFirstName-error" class="error-message " style="display: none"
+                <div id="billingFirstName-error" class="error-message hidden"
                      >{{ 'squarepayments.savedCards.pleaseEnterValidFirstName' | trans }}</div>
             </div>
 
@@ -133,27 +135,27 @@
                 <label class="form-label"
                        for="billingLastName">{{ 'squarepayments.savedCards.lastName' | trans }}</label>
                 <input type="text" class="form-control" id="billingLastName">
-                <div id="billingLastName-error" class="error-message " style="display: none"
+                <div id="billingLastName-error" class="error-message hidden"
                      >{{ 'squarepayments.savedCards.pleaseEnterValidLastName' | trans }}</div>
             </div>
 
             <div class="col-12">
                 <label class="form-label" for="billingEmail">{{ 'squarepayments.savedCards.email' | trans }}</label>
                 <input type="email" class="form-control" id="billingEmail">
-                <div id="billingEmail-error" class="error-message " style="display: none"
+                <div id="billingEmail-error" class="error-message hidden"
                      >{{ 'squarepayments.savedCards.pleaseEnterValidEmail' | trans }}</div>
 
             </div>
             <div class="col-12">
                 <label class="form-label" for="billingAddress">Address</label>
                 <input type="text" class="form-control" id="billingAddress" placeholder="1234 Main St">
-                <div id="billingAddress-error" class="error-message" style="display: none"
+                <div id="billingAddress-error" class="error-message hidden"
                      >{{ 'squarepayments.savedCards.pleaseEnterValidAdress' | trans }}</div>
             </div>
             <div class="col-md-6">
                 <label for="Billing">City</label>
                 <input type="text" class="form-control" id="billingCity">
-                <div id="billingCity-error" class="error-message " style="display: none"
+                <div id="billingCity-error" class="error-message hidden"
                      >{{ 'squarepayments.savedCards.pleaseEnterValidCity' | trans }}</div>
             </div>
             <div class="col-md-4">
@@ -186,19 +188,19 @@
                         </option>
                     {% endfor %}
                 </select>
-                <div id="billingCountry-error" class="error-message " style="display: none"
+                <div id="billingCountry-error" class="error-message hidden"
                      >{{ 'squarepayments.savedCards.pleaseEnterValidCountry' | trans }}</div>
             </div>
             <div class="col-md-2">
                 <label class="form-label" for="billingZip">{{ 'squarepayments.savedCards.zip' |trans }}</label>
                 <input type="text" class="form-control" id="billingZip">
-                <div id="billingZip-error" class="error-message " style="display: none"
+                <div id="billingZip-error" class="error-message hidden"
                      >{{ 'squarepayments.savedCards.pleaseEnterValidZip' | trans }}</div>
             </div>
             <hr class="my-4"/>
             <div id="payment-form">
                 <div id="payment-status-container"></div>
-                <div id="card-container"></div>
+                <div class="card-container" id="card-container"></div>
             </div>
 
             <div class="col-12">
