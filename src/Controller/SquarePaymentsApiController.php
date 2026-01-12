@@ -36,7 +36,12 @@ class SquarePaymentsApiController extends AbstractController
         return new JsonResponse(['status' => 'ok', 'transactions' => []]);
     }
 
-    #[Route('/api/_action/squarepayments/api-test/check', name: 'squarepayments.api_test.check', methods: ['POST'])]
+    #[Route(
+        path: '/api/_action/squarepayments/api-test/check',
+        name: 'squarepayments.api_test.check',
+        methods: ['POST'],
+        defaults: ['_acl' => ['system_config:read']]
+    )]
     public function check(Request $request): JsonResponse
     {
         $payload = json_decode($request->getContent(), true);

@@ -21,7 +21,7 @@ final class SquareApiFactory
 
         $accessToken = $isSandbox
             ? $this->squareConfigService->get('accessTokenSandbox')
-            : $this->squareConfigService->get('accessTokenLive');
+            : $this->squareConfigService->get('accessTokenProduction');
 
         $environment = $isSandbox ? Environment::SANDBOX : Environment::PRODUCTION;
 
@@ -36,7 +36,7 @@ final class SquareApiFactory
 
         $accessToken = $isSandbox
             ? $this->squareConfigService->get('accessTokenSandbox')
-            : $this->squareConfigService->get('accessTokenLive');
+            : $this->squareConfigService->get('accessTokenProduction');
 
         return new SquareClient([
             'accessToken' => $accessToken,
@@ -61,6 +61,6 @@ final class SquareApiFactory
 
         return $isSandbox
             ? $this->squareConfigService->get('applicationIdSandbox')
-            : $this->squareConfigService->get('applicationIdLive');
+            : $this->squareConfigService->get('applicationIdProduction');
     }
 }

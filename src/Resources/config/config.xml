@@ -50,13 +50,16 @@
             <label>Production Access token </label>
         </input-field>
 
-        <input-field type="password">
+        <input-field type="text">
             <name>locationIdProduction</name>
             <label>Production Location ID</label>
         </input-field>
 
         <component name="square-api-test">
             <name>ProductionSquareApiTest</name>
+            <environment>production</environment>
+            <label>Production API Test</label>
+            <helpText>Test the Square API connection using the production credentials.</helpText>
         </component>
         <component name="square-webhook-manager">
             <name>ProductionWebhookManager</name>
@@ -67,7 +70,7 @@
     </card>
     <card>
         <title>Sandbox Account Keys</title>
-        <input-field type="password">
+        <input-field type="text">
             <name>applicationIdSandbox</name>
             <label>Sandbox Application ID</label>
         </input-field>
@@ -84,6 +87,9 @@
 
         <component name="square-api-test">
             <name>SandboxSquareApiTest</name>
+            <environment>sandbox</environment>
+            <label>Sandbox API Test</label>
+            <helpText>Test the Square API connection using the sandbox credentials.</helpText>
         </component>
         <component name="square-webhook-manager">
             <name>SandboxWebhookManager</name>
@@ -120,3 +126,4 @@
         </input-field>
     </card>
 </config>
+

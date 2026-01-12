@@ -2,7 +2,7 @@
     "name": "solution25/square-payments",
     "description": "Square Payments for Shopware 6 lets you accept major credit cards and digital wallets securely. Easy setup, PCI compliant, and supports multiple currencies for your online store.",
     "type": "shopware-platform-plugin",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "license": "MIT",
     "require": {
         "shopware/core": "~6.6.0",

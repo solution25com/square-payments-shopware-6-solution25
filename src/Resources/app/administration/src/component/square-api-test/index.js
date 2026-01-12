@@ -4,6 +4,7 @@ const { Component, Mixin } = Shopware;
 
 Component.register('square-api-test', {
     template,
+    inject: ['squareApiTestService'],
 
     props: {
         label: String,
@@ -44,6 +45,14 @@ Component.register('square-api-test', {
             return $parent.currentSalesChannelId;
         },
         async check() {
+            if (!this.environment) {
+                this.createNotificationError({
+                    title: 'Square API Test',
+                    message: 'Environment is missing. Please check the plugin config.xml component configuration.',
+                });
+                return;
+            }
+
             this.isLoading = true;
             const payload = {
                 ...this.pluginConfig,
@@ -51,15 +60,7 @@ Component.register('square-api-test', {
                 environment: this.environment
             };
             try {
-                const response = await fetch('/api/_action/squarepayments/api-test/check', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
+                const result = await this.squareApiTestService.check(payload);
                 if (result.success) {
                     this.isSaveSuccessful = true;
                     this.createNotificationSuccess({

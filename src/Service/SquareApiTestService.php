@@ -2,6 +2,7 @@
 
 namespace SquarePayments\Service;
 
+use Square\Environment;
 use Square\SquareClient;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
@@ -11,8 +12,10 @@ class SquareApiTestService
     private LoggerInterface $logger;
     private SystemConfigService $systemConfigService;
 
-    public function __construct(LoggerInterface $logger, SystemConfigService $systemConfigService)
-    {
+    public function __construct(
+        LoggerInterface $logger,
+        SystemConfigService $systemConfigService
+    ) {
         $this->logger = $logger;
         $this->systemConfigService = $systemConfigService;
     }
@@ -24,36 +27,55 @@ class SquareApiTestService
     public function checkLocation(array $payload): array
     {
         try {
-            $environment = $payload['environment'] ?? 'sandbox';
+            $configEnv = ($payload['environment'] ?? 'sandbox') === 'production'
+                ? 'production'
+                : 'sandbox';
+
+            $sdkEnv = $configEnv === 'production'
+                ? Environment::PRODUCTION
+                : Environment::SANDBOX;
+
             $salesChannelId = $payload['salesChannelId'] ?? null;
-            $accessToken = $this->getConfigValue('accessToken', $environment, $salesChannelId);
-            $locationId = $this->getConfigValue('locationId', $environment, $salesChannelId);
+
+            $accessToken = $this->getConfigValue('accessToken', $configEnv, $salesChannelId);
+            $locationId  = $this->getConfigValue('locationId', $configEnv, $salesChannelId);
+
             if (!$accessToken || !$locationId) {
                 return [
                     'success' => false,
-                    'message' => 'Missing access token or location ID for environment: ' . $environment
+                    'message' => 'Missing access token or location ID for environment: ' . $configEnv,
                 ];
             }
+
             $client = new SquareClient([
                 'accessToken' => $accessToken,
-                'environment' => $environment,
+                'environment' => $sdkEnv,
             ]);
-            $apiResponse = $client->getLocationsApi()->retrieveLocation($locationId);
+
+            $apiResponse = $client
+                ->getLocationsApi()
+                ->retrieveLocation($locationId);
+
             if ($apiResponse->isSuccess()) {
                 return [
                     'success' => true,
                     'message' => 'Connection successful.',
                     'location' => $apiResponse->getResult()->getLocation(),
                 ];
-            } else {
-                $error = $apiResponse->getErrors()[0] ?? null;
-                return [
-                    'success' => false,
-                    'message' => $error ? $error->getDetail() : 'Unknown error',
-                ];
             }
-        } catch (\Exception $e) {
-            $this->logger->error('Square API Test failed: ' . $e->getMessage());
+
+            $error = $apiResponse->getErrors()[0] ?? null;
+
+            return [
+                'success' => false,
+                'message' => $error ? $error->getDetail() : 'Unknown error',
+            ];
+        } catch (\Throwable $e) {
+            $this->logger->error(
+                'Square API Test failed: ' . $e->getMessage(),
+                ['exception' => $e]
+            );
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -61,17 +83,15 @@ class SquareApiTestService
         }
     }
 
-    private function getConfigValue(string $key, string $environment, ?string $salesChannelId): ?string
-    {
+    private function getConfigValue(
+        string $key,
+        string $environment,
+        ?string $salesChannelId
+    ): ?string {
         $envSuffix = $environment === 'production' ? 'Production' : 'Sandbox';
         $configKey = "SquarePayments.config.{$key}{$envSuffix}";
         $value = $this->systemConfigService->get($configKey, $salesChannelId);
-        if ($value === null) {
-            return null;
-        }
-        if (is_scalar($value)) {
-            return (string)$value;
-        }
-        return null;
+
+        return is_scalar($value) ? (string) $value : null;
     }
 }
