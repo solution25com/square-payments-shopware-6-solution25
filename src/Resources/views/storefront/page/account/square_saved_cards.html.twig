@@ -1,0 +1,309 @@
+{% sw_extends '@Storefront/storefront/page/account/index.html.twig' %}
+
+{% block page_account_main_content %}
+    <div data-squarepayments-saved-cards-page="true">
+        {% set squarePaymentsSavedCardsPluginOptions = {
+            salesChannelAccessKey: context.salesChannel.accessKey,
+            mode: config('SquarePayments.config.mode'),
+            applicationIdSandbox: config('SquarePayments.config.applicationIdSandbox'),
+            applicationIdProduction: config('SquarePayments.config.applicationIdProduction'),
+            locationIdSandbox: config('SquarePayments.config.locationIdSandbox'),
+            locationIdProduction: config('SquarePayments.config.locationIdProduction'),
+            paymentMode : config('SquarePayments.config.paymentMode'),
+            translations: {
+                cardholder: ('squarepayments.savedCards.cardholder' | trans),
+                cardNumberPlaceholder: ('squarepayments.credit_card.cardNumberPlaceholderText' | trans),
+                cvvPlaceholder: ('squarepayments.savedCards.cvv' | trans),
+                expiryDatePlaceholder: ('squarepayments.credit_card.expiryDatePlaceholderText' | trans),
+                pleaseEnterValidExpirationDate: ('squarepayments.savedCards.pleaseEnterValidExpirationDate' | trans),
+                monthInvalid: ('squarepayments.savedCards.monthInvalid' | trans),
+                expirationDatePast: ('squarepayments.savedCards.expirationDatePast' | trans),
+                pleaseEnterValidFirstName: ('squarepayments.savedCards.pleaseEnterValidFirstName' | trans),
+                pleaseEnterValidLastName: ('squarepayments.savedCards.pleaseEnterValidLastName' | trans),
+                pleaseEnterValidEmail: ('squarepayments.savedCards.pleaseEnterValidEmail' | trans),
+                pleaseEnterValidStreet: ('squarepayments.savedCards.pleaseEnterValidStreet' | trans),
+                pleaseEnterValidCity: ('squarepayments.savedCards.pleaseEnterValidCity' | trans),
+                pleaseEnterValidZip: ('squarepayments.savedCards.pleaseEnterValidZip' | trans),
+                pleaseEnterValidCountry: ('squarepayments.savedCards.pleaseEnterValidCountry' | trans),
+                pleaseEnterValidState: ('squarepayments.savedCards.pleaseEnterValidState' | trans),
+                cardFieldsNotLoaded: ('squarepayments.savedCards.cardFieldsNotLoaded' | trans),
+                cardVerificationFailed: ('squarepayments.savedCards.cardVerificationFailed' | trans),
+                paymentSetupFailed: ('squarepayments.savedCards.paymentSetupFailed' | trans),
+                paymentSetupError: ('squarepayments.savedCards.paymentSetupError' | trans),
+                saveCardFailed: ('squarepayments.savedCards.saveCardFailed' | trans),
+                saveCardError: ('squarepayments.savedCards.saveCardError' | trans),
+                authenticationFailed: ('squarepayments.savedCards.authenticationFailed' | trans),
+                authenticationError: ('squarepayments.savedCards.authenticationError' | trans),
+                requiredField: ('squarepayments.savedCards.requiredField' | trans),
+                requiredCheckbox: ('squarepayments.savedCards.requiredCheckbox' | trans),
+                addCard: ('squarepayments.savedCards.addCard' | trans),
+                cancelCard: ('squarepayments.savedCards.cancelCard' | trans),
+                processing: ('squarepayments.savedCards.processing' | trans)
+            }
+        } %}
+
+        <div class="account-welcome">
+            <h1>{{ 'squarepayments.savedCards.savedCards' | trans }}</h1>
+        </div>
+
+        <link rel="stylesheet" href="{{ asset('bundles/squarepayments/storefront/css/saved_cards.css') }}">
+
+        {% if cards is empty %}
+            <p>{{ 'squarepayments.savedCards.noSavedCards' | trans }}</p>
+        {% else %}
+            {% set cardTypeMap = {
+                '001': 'VISA',
+                '002': 'MASTERCARD',
+                '003': 'AMEX',
+                '004': 'DISCOVER',
+                '005': 'DINERS',
+                '006': 'JCB',
+                '007': 'MAESTRO',
+                '014': 'DANKORT',
+                '024': 'UNIONPAY'
+            } %}
+            {% set cardImages = {
+                'AMEX': 'https://files.readme.io/97e7acc-Amex.png',
+                'DINERS': 'https://files.readme.io/8c73810-Diners_Club.png',
+                'DISCOVER': 'https://files.readme.io/caea86d-Discover.png',
+                'JCB': 'https://files.readme.io/e076aed-JCB.png',
+                'MASTERCARD': 'https://files.readme.io/5b7b3de-Mastercard.png',
+                'VISA': 'https://files.readme.io/9018c4f-Visa.png',
+                'MAESTRO': 'https://files.readme.io/79d7723-Maestro.png',
+                'UNIONPAY': 'https://files.readme.io/92c35c7-UnionPay.png',
+                'DANKORT': 'https://files.readme.io/ff5319d-Dankort.png'
+            } %}
+
+            <div class="row g-4" id="savedCards">
+                {% for card in cards %}
+                    {% set cardBrand = card.card_brand %}
+
+                    <!-- Card 2 -->
+                    <div class="col-12 col-md-6 col-xl-4 card-item squarepayments-credit-card {{ cardBrand|lower }}"
+                         data-payment-profile-id="{{ card.id }}"
+                         data-last4={{ card.last_4 }} data-brand={{ card.card_brand }}>
+                        <div class="paycard {{ cardBrand | lower }} shadow-sm">
+                            <div class="inner">
+                                <div class="face front">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        {% if cardImages[cardBrand] is defined %}
+                                            <img src="{{ cardImages[cardBrand] }}" alt="{{ cardBrand }}" class="card-icon"/>
+                                        {% endif %}
+                                    </div>
+                                    <div class="num"><span class="mask">**** **** **** {{ card.last_4 }}</span></div>
+                                    <div class="d-flex justify-content-between">
+                                        <div class="muted">
+                                            <div class="text-uppercase small">{{ 'squarepayments.savedCards.cardholder' | trans }}</div>
+                                            <div>{{ card.cardholder_name }}</div>
+                                        </div>
+                                        <div class="text-end">
+                                            <div class="text-uppercase small muted">Expires</div>
+                                            <div class="mask">{{ card.exp_month }}/{{ card.exp_year }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div class="brand">{{ cardBrand }}
+                                        </div>
+                                        <div class="small">{{ card.card_type }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-2">
+                            <button data-card-id="{{ card.id }}" id="remove-card" class="btn btn-sm btn-outline-danger remove-card"><i class="bi bi-trash"></i> {{ 'squarepayments.savedCards.deleteCard' | trans }}
+                            </button>
+                        </div>
+                    </div>
+                {% endfor %}
+
+            </div>
+
+        {% endif %}
+        <hr class="my-4"/>
+        <div>
+            <button class="btn btn-light mt-4" id="addCardButton"><i
+                        class="bi bi-plus-lg"></i>{{ 'squarepayments.savedCards.addCard' | trans }}</button>
+            <form class="row g-3 hidden" id="addCardForm">
+                <div class="col-md-6">
+                    <label class="form-label"
+                           for="billingFirstName">{{ 'squarepayments.savedCards.firstName' | trans }}</label>
+                    <input type="text" class="form-control" id="billingFirstName">
+                    <div id="billingFirstName-error" class="error-message hidden"
+                         >{{ 'squarepayments.savedCards.pleaseEnterValidFirstName' | trans }}</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label"
+                           for="billingLastName">{{ 'squarepayments.savedCards.lastName' | trans }}</label>
+                    <input type="text" class="form-control" id="billingLastName">
+                    <div id="billingLastName-error" class="error-message hidden"
+                         >{{ 'squarepayments.savedCards.pleaseEnterValidLastName' | trans }}</div>
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label" for="billingEmail">{{ 'squarepayments.savedCards.email' | trans }}</label>
+                    <input type="email" class="form-control" id="billingEmail">
+                    <div id="billingEmail-error" class="error-message hidden"
+                         >{{ 'squarepayments.savedCards.pleaseEnterValidEmail' | trans }}</div>
+
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="billingAddress">Address</label>
+                    <input type="text" class="form-control" id="billingAddress" placeholder="1234 Main St">
+                    <div id="billingAddress-error" class="error-message hidden"
+                         >{{ 'squarepayments.savedCards.pleaseEnterValidAdress' | trans }}</div>
+                </div>
+                <div class="col-md-6">
+                    <label for="Billing">City</label>
+                    <input type="text" class="form-control" id="billingCity">
+                    <div id="billingCity-error" class="error-message hidden"
+                         >{{ 'squarepayments.savedCards.pleaseEnterValidCity' | trans }}</div>
+                </div>
+                <div class="col-md-4">
+                    <label for="billingCountry">
+                        {{ "squarepayments.savedCards.country"|trans }}
+                    </label>
+                    <select id="billingCountry" class="form-control">
+                        {% if not initialCountryId %}
+                            <option value=""
+                                    disabled="disabled"
+                                    selected="selected">
+                                {{ 'address.countryPlaceholder'|trans|sw_sanitize }}
+                            </option>
+                        {% endif %}
+
+                        {% for country in page.extensions.squarepayments.countries %}
+
+                            <option value="{{ country.iso }}"
+                                    {% if country.iso == initialCountryId %}selected="selected"{% endif %}
+                                    data-zipcode-required="{{ country.postalCodeRequired }}"
+                                    data-vat-id-required="{{ country.vatIdRequired }}"
+                                    data-state-required="{{ country.forceStateInRegistration }}"
+                                    {% if not country.shippingAvailable and disableNonShippableCountries %}disabled="disabled"{% endif %}>
+
+                                {{ country.translated.name }}
+
+                                {% if showNoShippingPostfix and not country.shippingAvailable %}
+                                    {{ 'address.countryPostfixNoShipping'|trans|sw_sanitize }}
+                                {% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <div id="billingCountry-error" class="error-message hidden"
+                         >{{ 'squarepayments.savedCards.pleaseEnterValidCountry' | trans }}</div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="billingZip">{{ 'squarepayments.savedCards.zip' |trans }}</label>
+                    <input type="text" class="form-control" id="billingZip">
+                    <div id="billingZip-error" class="error-message hidden"
+                         >{{ 'squarepayments.savedCards.pleaseEnterValidZip' | trans }}</div>
+                </div>
+                <hr class="my-4"/>
+                <div id="payment-form">
+                    <div id="payment-status-container"></div>
+                    <div class="card-container" id="card-container"></div>
+                </div>
+
+                <div class="col-12">
+                    <button id="saveCardButton" type="submit"
+                            class="btn btn-primary saveCardButton">{{ 'squarepayments.savedCards.saveCard' | trans }}</button>
+                </div>
+            </form>
+            <div id="step_up"></div>
+        </div>
+        {% if subscriptionRows is defined and subscriptionRows|length > 0 %}
+            <div class="add-card-section" style="margin-top: 40px;">
+                <h2>Subscriptions</h2>
+                <p class="text-muted">Choose which saved card should be used for the next recurring payment.</p>
+
+                <div
+                    data-squarepayments-subscription-card-choice
+                    data-squarepayments-subscription-card-choice-options="{{ { 'saveUrl': saveSubscriptionCardChoiceUrl }|json_encode()|escape('html_attr') }}"
+                >
+                    <table class="table table-striped">
+                        <thead>
+                        <tr>
+                            <th>Last order</th>
+                            <th>Last order date</th>
+                            <th>Next amount</th>
+                            <th>Payment state</th>
+                            <th>Next card</th>
+                            <th></th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for row in subscriptionRows %}
+                            <tr>
+                                <td>{{ row.lastOrderNumber }}</td>
+                                <td>{{ row.lastOrderDateHuman ?: '-' }}</td>
+                                <td>
+                                    {% if row.lastOrderAmount is not null %}
+                                        {{ row.lastOrderAmount|currency(row.lastOrderCurrencyIsoCode ?: context.currency.isoCode) }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ row.paymentState ?: '-' }}</td>
+                                <td>
+                                    {% if row.chosenCard %}
+                                        {{ (row.chosenCard.card_brand ?: 'card')|upper }} •••• {{ row.chosenCard.last_4 }}
+                                        ({% if row.chosenCard.exp_month is defined %}{{ '%02d'|format(row.chosenCard.exp_month) }}{% else %}--{% endif %}/{% if row.chosenCard.exp_year is defined %}{{ row.chosenCard.exp_year }}{% else %}----{% endif %})
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-primary"
+                                        data-squarepayments-subscription-card-choice-open
+                                        data-subscription-id="{{ row.subscriptionId }}"
+                                        data-current-choice="{{ row.chosenSquareCardId ?: '' }}"
+                                    >
+                                        Choose card
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <div id="squarepayments-subscription-card-choice-modal" class="modal fade" tabindex="-1" role="dialog" style="display: none;">
+                        <div class="modal-dialog modal-dialog-centered" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Choose card for next payment</h5>
+                                    <button type="button" class="btn-close" data-dismiss-modal aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Saved cards</label>
+                                        <select id="squarepayments-subscription-card-choice-select" class="form-select">
+                                            {% for card in cards %}
+                                                <option value="{{ card.id }}">{{ (card.card_brand ?: 'card')|upper }} •••• {{ card.last_4 }} ({{ '%02d'|format(card.exp_month) }}/{{ card.exp_year }})</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+
+                                    <small class="text-muted">This will be used for the next recurring charge of this subscription.</small>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-dismiss-modal>Cancel</button>
+                                    <button type="button" class="btn btn-primary" id="squarepayments-subscription-card-choice-save">Save</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="squarepayments-subscription-card-choice-backdrop" class="modal-backdrop fade" style="display: none;"></div>
+                </div>
+            </div>
+        {% endif %}
+
+        {% set mode = config('SquarePayments.config.mode') %}
+        <script src="{{ mode is same as('production') ? page.extensions.squarepayments.productionJS : page.extensions.squarepayments.sandboxJS }}"></script>
+        <template data-square-payments-saved-cards
+                  data-square-payments-saved-cards-options='{{ squarePaymentsSavedCardsPluginOptions| json_encode |escape('html_attr') }}'></template>
+    </div>
+{% endblock %}

@@ -31,6 +31,10 @@ export default class SquarePaymentsSavedCards extends PluginBaseClass {
     };
 
     _init() {
+        if (!document.querySelector('[data-squarepayments-saved-cards-page="true"]')) {
+            return;
+        }
+
         try {
             const mode = this.options.mode || 'sandbox';
             this.options.appId = mode === 'production' ? this.options.applicationIdProduction || '' : this.options.applicationIdSandbox || '';

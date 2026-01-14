@@ -134,7 +134,7 @@ class PaymentStatusSubscriber implements EventSubscriberInterface
                     TransactionStatuses::VOIDED->value,
                     $context
                 );
-                $this->transactionLogger->logTransaction(TransactionStatuses::PAID->value, $voidResult['payment'], $orderId, $context, $squareTransactionId);
+                $this->transactionLogger->logTransaction(TransactionStatuses::VOIDED->value, $voidResult['payment'], $orderId, $context, $squareTransactionId);
                 break;
             case $fromState === OrderTransactionStates::STATE_PAID && $toState === OrderTransactionStates::STATE_REFUNDED:
                 $amount = $transaction->getAmount()->getTotalPrice();

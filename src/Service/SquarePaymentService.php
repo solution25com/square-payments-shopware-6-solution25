@@ -321,4 +321,75 @@ class SquarePaymentService
 
         return $latest?->getId();
     }
+    public function processRecurringPayment(
+        string $cardId,
+        string $orderId,
+        string $squareCustomerId,
+        int $amountMinor,
+        string $currencyIsoCode,
+        string $orderTransactionId,
+        Context $context
+    ): array {
+        if ($cardId === '' || $orderId === '' || $squareCustomerId === '') {
+            return ['status' => 'error', 'message' => 'Card ID, Customer Id and Order ID are required'];
+        }
+
+        $idempotencyKey = $this->generateIdempotencyKey();
+        $currency = strtoupper($currencyIsoCode ?: 'USD');
+
+        $money = new Money();
+        $money->setAmount($amountMinor);
+        $money->setCurrency($currency);
+
+        $paymentRequest = new CreatePaymentRequest($cardId, $idempotencyKey);
+        $paymentRequest->setCustomerId($squareCustomerId);
+        $paymentRequest->setAmountMoney($money);
+        $paymentRequest->setLocationId($this->squareApiFactory->getLocationId());
+
+        $paymentMode = $this->squareConfigService->get('paymentMode');
+        $paymentRequest->setAutocomplete($paymentMode === 'AUTHORIZE_AND_CAPTURE');
+
+        try {
+            $response = $this->client->getPaymentsApi()->createPayment($paymentRequest);
+            $result = $response->getResult();
+            $processed = $this->responseHandleService->process($result);
+
+            if (($processed['status'] ?? null) !== 'success') {
+                return ['status' => 'error', 'message' => 'Payment failed', 'details' => $processed];
+            }
+
+            $paymentId = (string)($processed['payment']['id'] ?? '');
+            $transactionStatus = $paymentMode === 'AUTHORIZE_AND_CAPTURE'
+                ? TransactionStatuses::PAID->value
+                : TransactionStatuses::AUTHORIZED->value;
+
+            if ($paymentMode === 'AUTHORIZE_AND_CAPTURE') {
+                $this->transactionStateHandler->paid($orderTransactionId, $context);
+            } else {
+                $this->transactionStateHandler->authorize($orderTransactionId, $context);
+            }
+
+            $squareTransactionId = $this->transactionService->addTransaction(
+                $orderId,
+                'Credit Card',
+                $paymentId,
+                $transactionStatus,
+                $context
+            );
+
+            $paymentData = $processed['payment'] ?? [];
+            $paymentData = is_array($paymentData) ? $paymentData : (json_decode((string) $paymentData, true) ?: []);
+            $this->transactionLogger->logTransaction($transactionStatus, $paymentData, $orderId, $context, $squareTransactionId);
+
+            return ['status' => 'success', 'paymentId' => $paymentId];
+        } catch (\Throwable $e) {
+            $this->logger->error('Recurring payment exception', [
+                'orderId' => $orderId,
+                'orderTransactionId' => $orderTransactionId,
+                'message' => $e->getMessage(),
+            ]);
+
+            return ['status' => 'error', 'message' => $e->getMessage()];
+        }
+    }
 }

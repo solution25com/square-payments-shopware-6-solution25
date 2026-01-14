@@ -15,6 +15,9 @@
             <argument type="service" id="order_transaction.repository"/>
             <argument type="service" id="payment_method.repository"/>
             <argument type="service" id="SquarePayments\Service\TransactionLogger"/>
+            <argument type="service" id="SquarePayments\Service\SquarePaymentService"/>
+            <argument type="service" id="square_subscription_card_choice.repository"/>
+            <argument type="service" id="SquarePayments\Storefront\Service\SquareSubscriptionIdExtractor"/>
             <tag name="shopware.payment.method.payment_handler"/>
             <tag name="shopware.payment.method.sync"/>
         </service>
@@ -105,6 +108,9 @@
         <service id="SquarePayments\Core\Content\Transaction\SquarePaymentsTransactionDefinition">
             <tag name="shopware.entity.definition" entity="squarepayments_transaction"/>
         </service>
+        <service id="SquarePayments\Core\Content\SquareSubscriptionCardChoice\SquareSubscriptionCardChoiceDefinition">
+            <tag name="shopware.entity.definition" entity="square_subscription_card_choice"/>
+        </service>
         <!-- End Entity Definitions -->
 
         <!-- Storefront Controllers -->
@@ -124,14 +130,24 @@
         <service id="SquarePayments\Storefront\Controller\SquareCardController" public="true">
             <argument type="service" id="Shopware\Storefront\Page\GenericPageLoader"/>
             <argument type="service" id="SquarePayments\Service\SquareCardService"/>
-           <argument type="service" id="Shopware\Core\System\Country\SalesChannel\CountryRoute"/>
+            <argument type="service" id="Shopware\Core\System\Country\SalesChannel\CountryRoute"/>
+            <argument type="service" id="SquarePayments\Storefront\Service\SquareSubscriptionOrderProvider"/>
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
+            </call>
+            <call method="setTwig">
+                <argument type="service" id="twig"/>
             </call>
         </service>
         <service id="SquarePayments\Controller\SquarePaymentsApiController" public="true">
             <argument type="service" id="SquarePayments\Service\SquareApiTestService"/>
             <argument type="service" id="SquarePayments\Service\SquarePaymentService"/>
+            <call method="setContainer">
+                <argument type="service" id="service_container"/>
+            </call>
+        </service>
+        <service id="SquarePayments\Storefront\Controller\SquareSubscriptionCardChoiceController" public="true">
+            <argument type="service" id="square_subscription_card_choice.repository"/>
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>
@@ -173,5 +189,12 @@
         </service>
         <!-- End Entity Extensions -->
 
+        <service id="SquarePayments\Storefront\Service\SquareSubscriptionIdExtractor" />
+
+        <service id="SquarePayments\Storefront\Service\SquareSubscriptionOrderProvider">
+            <argument type="service" id="order.repository"/>
+            <argument type="service" id="square_subscription_card_choice.repository"/>
+            <argument type="service" id="SquarePayments\Storefront\Service\SquareSubscriptionIdExtractor"/>
+        </service>
     </services>
 </container>

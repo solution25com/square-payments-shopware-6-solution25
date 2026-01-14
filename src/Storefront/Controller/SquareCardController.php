@@ -15,6 +15,7 @@ use Shopware\Storefront\Controller\StorefrontController;
 use Shopware\Storefront\Page\GenericPageLoader;
 use SquarePayments\Library\EnvironmentUrl;
 use SquarePayments\Service\SquareCardService;
+use SquarePayments\Storefront\Service\SquareSubscriptionOrderProvider;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,7 +30,8 @@ class SquareCardController extends StorefrontController
     public function __construct(
         GenericPageLoader $genericPageLoader,
         SquareCardService $cardService,
-        private readonly AbstractCountryRoute $countryRoute
+        private readonly AbstractCountryRoute $countryRoute,
+        private readonly SquareSubscriptionOrderProvider $subscriptionOrderProvider,
     ) {
         $this->genericPageLoader = $genericPageLoader;
         $this->cardService = $cardService;
@@ -48,6 +50,20 @@ class SquareCardController extends StorefrontController
         }
         $page = $this->genericPageLoader->load($request, $context);
         $cards = $this->cardService->getSavedCards($context)['cards'] ?? [];
+
+        $subscriptionRows = $this->subscriptionOrderProvider->getSubscriptionRows($context);
+
+        $cardMap = [];
+        foreach ($cards as $card) {
+            if (!isset($card['id'])) {
+                continue;
+            }
+            $cardMap[$card['id']] = $card;
+        }
+        foreach ($subscriptionRows as $idx => $row) {
+            $cardId = $row['chosenSquareCardId'] ?? null;
+            $subscriptionRows[$idx]['chosenCard'] = ($cardId && isset($cardMap[$cardId])) ? $cardMap[$cardId] : null;
+        }
 
         $criteria = (new Criteria())
             ->addAssociation('states')
@@ -76,12 +92,12 @@ class SquareCardController extends StorefrontController
             $templateVariables
         );
 
-
-
-        return $this->renderStorefront('@Storefront/storefront/page/account/saved_cards.html.twig', [
+        return $this->renderStorefront('@Storefront/storefront/page/account/square_saved_cards.html.twig', [
             'page' => $page,
             'cards' => $cards,
-            'paymentMethodId' => $context->getPaymentMethod()->getId()
+            'paymentMethodId' => $context->getPaymentMethod()->getId(),
+            'subscriptionRows' => $subscriptionRows,
+            'saveSubscriptionCardChoiceUrl' => $this->generateUrl('frontend.squarepayments.subscription_card_choice.save'),
         ]);
     }
 
