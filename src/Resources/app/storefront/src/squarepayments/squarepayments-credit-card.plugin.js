@@ -32,20 +32,52 @@ export default class SquarePaymentsCreditCard extends PluginBaseClass {
     };
 
     _init() {
+        this._isConfigured = true;
+
         try {
             const mode = this.options.mode || 'sandbox';
             this.options.appId = mode === 'production' ? this.options.applicationIdProduction || '' : this.options.applicationIdSandbox || '';
             this.options.locationId = mode === 'production' ? this.options.locationIdProduction || '' : this.options.locationIdSandbox || '';
+
             if (!this.options.appId || !this.options.locationId) {
+                this._isConfigured = false;
                 console.error('[SquarePayments] appId or locationId not provided in options.');
             }
         } catch (e) {
+            this._isConfigured = false;
             console.error('[SquarePayments] Failed to parse options:', e);
         }
+
         this._setupEventListeners();
+
         if (this.options.isPaymentForm) {
+            if (!this._isConfigured) {
+                this._disableCheckoutSubmitWithConfigError();
+                return;
+            }
+
             this._loadSavedCards();
             this._initializeSquareCard().then();
+        }
+    }
+
+    _disableCheckoutSubmitWithConfigError() {
+        const confirmOrderForm = document.getElementById('confirmOrderForm');
+        if (!confirmOrderForm) {
+            return;
+        }
+
+        const submitButton = confirmOrderForm.querySelector('button[type="submit"]');
+        if (submitButton) {
+            submitButton.disabled = true;
+        }
+
+        const paymentForm = document.getElementById(this.options.containerId);
+        if (paymentForm) {
+            const error = document.createElement('div');
+            error.className = 'alert alert-danger';
+            error.textContent = 'Square payment method is not configured. Please contact the shop administrator.';
+            paymentForm.prepend(error);
         }
     }
 
@@ -57,15 +89,25 @@ export default class SquarePaymentsCreditCard extends PluginBaseClass {
             if (submitButton) {
                 submitButton.id = 'confirmFormSubmit';
             }
-            confirmOrderForm.onsubmit = function (e) {
+
+            confirmOrderForm.onsubmit = (e) => {
+                if (this.options.isPaymentForm && !this._isConfigured) {
+                    e.preventDefault();
+                    return false;
+                }
+
                 e.preventDefault();
                 const squareTransactionId = document.getElementById('square_transaction_id');
+                const payButton = document.getElementById(this.options.payButtonId);
+
                 if (squareTransactionId && squareTransactionId.value === '') {
-                    payButton.click();
+                    if (payButton) {
+                        payButton.click();
+                    }
                 } else {
                     confirmOrderForm.submit();
                 }
-            }
+            };
         }
 
         const savedCardsSelect = document.getElementById(this.options.savedCardsId);

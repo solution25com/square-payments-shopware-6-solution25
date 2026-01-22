@@ -12,9 +12,14 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Shopware\Storefront\Page\Account\Order\AccountEditOrderPageLoadedEvent;
 use Shopware\Storefront\Page\Checkout\Confirm\CheckoutConfirmPageLoadedEvent;
 use Shopware\Core\Framework\Struct\ArrayStruct;
+use SquarePayments\Service\SquareConfigService;
 
 class CheckoutConfirmEventSubscriber implements EventSubscriberInterface
 {
+    public function __construct(private readonly SquareConfigService $squareConfigService)
+    {
+    }
+
     public static function getSubscribedEvents(): array
     {
         return [
@@ -40,6 +45,10 @@ class CheckoutConfirmEventSubscriber implements EventSubscriberInterface
 
         $isGuestLogin = $customer->getGuest();
 
+        $salesChannelId = $salesChannelContext->getSalesChannelId();
+        if (!$this->squareConfigService->isConfigured($salesChannelId)) {
+            return;
+        }
 
         $templateVariables = new ArrayStruct([
             'productionJS' => EnvironmentUrl::SQUARE_JS_LIVE->value,

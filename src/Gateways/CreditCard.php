@@ -59,27 +59,35 @@ class CreditCard extends AbstractPaymentHandler
         Context $context,
         ?Struct $validateStruct = null
     ): ?RedirectResponse {
-        $dataBag = new RequestDataBag($request->request->all());
-        $this->logger->debug('pay of credit card');
-        $this->logger->debug('Credit Card Payment Request DataBag', [$dataBag]);
-        $status = $dataBag->get('squarepayments_payment_status');
-        $paymentData = $dataBag->get('square_payment_data');
-        $transactionId = $dataBag->get('squarepayments_transaction_id');
-        $isSubscription = $dataBag->get('squarepayments_is_subscription') == "1";
-        $subscriptionCard = $dataBag->get('squarepayments_subscription_card') ?? "";
+        /* @phpstan-ignore-next-line */
+        $salesChannelId = (string) ($context->getSource()->getSalesChannelId() ?? '');
 
-        if ($status !== 'success' || !$transactionId) {
-            $this->logger->warning('Payment failed: Invalid status or transaction ID', [
-                'status' => $status,
-                'transactionId' => $transactionId,
-            ]);
+        if (!$this->squareConfigService->isConfigured($salesChannelId !== '' ? $salesChannelId : null)) {
             $this->transactionStateHandler->fail($transaction->getOrderTransactionId(), $context);
-            return null;
+
+            throw PaymentException::syncProcessInterrupted(
+                $transaction->getOrderTransactionId(),
+                'Square payment method is not configured for this sales channel.'
+            );
         }
 
-        $paymentMode = $this->squareConfigService->get('paymentMode');
-        $paymentMethodName = $this->getPaymentMethodName($transaction, $context);
-        $orderId = $this->getOrderIdFromTransaction($transaction->getOrderTransactionId(), $context);
+        $dataBag = new RequestDataBag($request->request->all());
+
+        $status = $dataBag->get('squarepayments_payment_status');
+        $transactionId = $dataBag->get('squarepayments_transaction_id');
+
+        if ($status !== 'success' || !\is_string($transactionId) || $transactionId === '') {
+            $this->transactionStateHandler->fail($transaction->getOrderTransactionId(), $context);
+
+            throw PaymentException::syncProcessInterrupted(
+                $transaction->getOrderTransactionId(),
+                'Square payment was not authorized. Please try again or select a different payment method.'
+            );
+        }
+
+        $paymentData = $dataBag->get('square_payment_data');
+        $isSubscription = $dataBag->get('squarepayments_is_subscription') == "1";
+        $subscriptionCard = $dataBag->get('squarepayments_subscription_card') ?? "";
 
         if ($isSubscription && $subscriptionCard !== '') {
             $decodedSubscriptionCard = json_decode((string) $subscriptionCard, true);
@@ -105,7 +113,7 @@ class CreditCard extends AbstractPaymentHandler
             }
         }
 
-        switch ($paymentMode) {
+        switch ($this->squareConfigService->get('paymentMode')) {
             case 'AUTHORIZE_AND_CAPTURE':
                 $this->transactionStateHandler->paid($transaction->getOrderTransactionId(), $context);
                 $status = TransactionStatuses::PAID->value;
@@ -117,8 +125,8 @@ class CreditCard extends AbstractPaymentHandler
         }
 
         $squareTransactionId = $this->transactionService->addTransaction(
-            $orderId,
-            $paymentMethodName,
+            $this->getOrderIdFromTransaction($transaction->getOrderTransactionId(), $context),
+            $this->getPaymentMethodName($transaction, $context),
             $transactionId,
             $status,
             $context,
@@ -126,7 +134,7 @@ class CreditCard extends AbstractPaymentHandler
         );
         $paymentDataRaw = $paymentData;
         $paymentData = is_array($paymentDataRaw) ? $paymentDataRaw : (json_decode((string)$paymentDataRaw, true) ?: []);
-        $this->transactionLogger->logTransaction($status, $paymentData, $orderId, $context, $squareTransactionId);
+        $this->transactionLogger->logTransaction($status, $paymentData, $this->getOrderIdFromTransaction($transaction->getOrderTransactionId(), $context), $context, $squareTransactionId);
         return null;
     }
 

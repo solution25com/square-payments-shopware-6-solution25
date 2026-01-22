@@ -14,6 +14,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
 use SquarePayments\Library\TransactionStatuses;
 use SquarePayments\Service\SquarePaymentsTransactionService;
+use SquarePayments\Service\SquareConfigService;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Shopware\Core\Framework\Context;
@@ -21,6 +22,7 @@ use Shopware\Core\Framework\Struct\Struct;
 use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionCollection;
 use Shopware\Core\Checkout\Payment\PaymentMethodCollection;
 use Shopware\Core\Framework\Struct\ArrayStruct;
+use Shopware\Core\Checkout\Payment\PaymentException;
 
 class ApplePay extends AbstractPaymentHandler
 {
@@ -39,7 +41,8 @@ class ApplePay extends AbstractPaymentHandler
         OrderTransactionStateHandler $transactionStateHandler,
         SquarePaymentsTransactionService $squarePaymentsTransactionService,
         EntityRepository $orderTransactionRepository,
-        EntityRepository $paymentMethodRepository
+        EntityRepository $paymentMethodRepository,
+        private readonly SquareConfigService $squareConfigService
     ) {
         $this->transactionStateHandler = $transactionStateHandler;
         $this->squarePaymentsTransactionService = $squarePaymentsTransactionService;
@@ -56,8 +59,19 @@ class ApplePay extends AbstractPaymentHandler
         Context $context,
         ?Struct $validateStruct = null
     ): ?RedirectResponse {
+        /* @phpstan-ignore-next-line */
+        $salesChannelId = (string) ($context->getSource()->getSalesChannelId() ?? '');
+        if (!$this->squareConfigService->isConfigured($salesChannelId !== '' ? $salesChannelId : null)) {
+            $this->transactionStateHandler->fail($transaction->getOrderTransactionId(), $context);
+            throw PaymentException::syncProcessInterrupted($transaction->getOrderTransactionId(), 'Square payment method is not configured for this sales channel.');
+        }
+
         $dataBag = new RequestDataBag($request->request->all());
         $squarePaymentsTransactionId = $dataBag->get('squarepayments_transaction_id');
+        if (!\is_string($squarePaymentsTransactionId) || $squarePaymentsTransactionId === '') {
+            $this->transactionStateHandler->fail($transaction->getOrderTransactionId(), $context);
+            throw PaymentException::syncProcessInterrupted($transaction->getOrderTransactionId(), 'Missing Square transaction id.');
+        }
         $ext = $context->getExtension('paymentMethodName');
         if ($ext instanceof ArrayStruct) {
             $paymentMethodName = (string)($ext->get('paymentMethodName') ?? '');

@@ -27,6 +27,7 @@
             <argument type="service" id="SquarePayments\Service\SquarePaymentsTransactionService"/>
             <argument type="service" id="order_transaction.repository"/>
             <argument type="service" id="payment_method.repository"/>
+            <argument type="service" id="SquarePayments\Service\SquareConfigService"/>
             <tag name="shopware.payment.method.payment_handler"/>
             <tag name="shopware.payment.method.sync"/>
         </service>
@@ -36,6 +37,7 @@
             <argument type="service" id="SquarePayments\Service\SquarePaymentsTransactionService"/>
             <argument type="service" id="order_transaction.repository"/>
             <argument type="service" id="payment_method.repository"/>
+            <argument type="service" id="SquarePayments\Service\SquareConfigService"/>
             <tag name="shopware.payment.method.payment_handler"/>
             <tag name="shopware.payment.method.sync"/>
         </service>
@@ -169,6 +171,7 @@
 
         <!-- Event Subscribers -->
         <service id="SquarePayments\EventSubscriber\CheckoutConfirmEventSubscriber">
+            <argument type="service" id="SquarePayments\Service\SquareConfigService"/>
             <tag name="kernel.event_subscriber"/>
         </service>
         <service id="SquarePayments\EventSubscriber\PaymentStatusSubscriber">
