@@ -50,11 +50,19 @@ class CheckoutConfirmEventSubscriber implements EventSubscriberInterface
             return;
         }
 
+        $amount = 0;
+        if ($event instanceof CheckoutConfirmPageLoadedEvent) {
+            $amount = $pageObject->getCart()->getPrice()->getTotalPrice();
+        } elseif ($event instanceof AccountEditOrderPageLoadedEvent) {
+            $amount = $pageObject->getOrder()->getAmountTotal();
+        }
+
         $templateVariables = new ArrayStruct([
             'productionJS' => EnvironmentUrl::SQUARE_JS_LIVE->value,
             'sandboxJS' => EnvironmentUrl::SQUARE_JS_SANDBOX->value,
             'template' => '@SquarePayments/storefront/component/payment/credit-card.html.twig',
             'isGuestLogin' => $isGuestLogin,
+            'amount' => $amount,
         ]);
 
         $pageObject->addExtension(

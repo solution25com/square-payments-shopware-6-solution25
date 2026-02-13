@@ -459,9 +459,24 @@ export default class SquarePaymentsCreditCard extends PluginBaseClass {
 
     _updateHiddenFields(data) {
 
-        document.getElementById('squarepayments_transaction_id').value = data.payment.id;
-        document.getElementById('squarepayments_payment_status').value = data.status;
-
+        let transactionIdInput = document.getElementById('squarepayments_transaction_id');
+        if (!transactionIdInput) {
+            transactionIdInput = document.createElement('input');
+            transactionIdInput.type = 'hidden';
+            transactionIdInput.id = 'squarepayments_transaction_id';
+            transactionIdInput.name = 'squarepayments_transaction_id';
+            document.getElementById('confirmOrderForm').appendChild(transactionIdInput);
+        }
+        transactionIdInput.value = data.payment.id;
+        let paymentStatusInput = document.getElementById('squarepayments_payment_status');
+        if (!paymentStatusInput) {
+            paymentStatusInput = document.createElement('input');
+            paymentStatusInput.type = 'hidden';
+            paymentStatusInput.id = 'squarepayments_payment_status';
+            paymentStatusInput.name = 'squarepayments_payment_status';
+            document.getElementById('confirmOrderForm').appendChild(paymentStatusInput);
+        }
+        paymentStatusInput.value = data.status;
         let paymentDataInput = document.getElementById('squarepayments_payment_data');
         if (!paymentDataInput) {
             paymentDataInput = document.createElement('input');

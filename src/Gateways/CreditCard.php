@@ -15,6 +15,7 @@ use SquarePayments\PaymentMethods\CreditCardPaymentMethod;
 use SquarePayments\Service\SquareConfigService;
 use SquarePayments\Service\SquarePaymentService;
 use SquarePayments\Service\SquarePaymentsTransactionService;
+use SquarePayments\Service\SquareCardService;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Payment\Cart\PaymentHandler\AbstractPaymentHandler;
 use Shopware\Core\Checkout\Payment\Cart\PaymentTransactionStruct;
@@ -32,6 +33,7 @@ use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionColl
 use Shopware\Core\Checkout\Payment\PaymentMethodCollection;
 use Shopware\Core\Framework\Uuid\Uuid;
 use SquarePayments\Storefront\Service\SquareSubscriptionIdExtractor;
+use Shopware\Core\System\SalesChannel\Context\AbstractSalesChannelContextFactory;
 
 class CreditCard extends AbstractPaymentHandler
 {
@@ -48,8 +50,10 @@ class CreditCard extends AbstractPaymentHandler
         private readonly EntityRepository $paymentMethodRepository,
         private readonly TransactionLogger $transactionLogger,
         private readonly SquarePaymentService $squarePaymentService,
-        private readonly \Shopware\Core\Framework\DataAbstractionLayer\EntityRepository $squareSubscriptionCardChoiceRepository,
+        private readonly EntityRepository $squareSubscriptionCardChoiceRepository,
         private readonly SquareSubscriptionIdExtractor $subscriptionIdExtractor,
+        private readonly SquareCardService $squareCardService,
+        private readonly AbstractSalesChannelContextFactory $salesChannelContextFactory,
     ) {
     }
 
@@ -180,10 +184,9 @@ class CreditCard extends AbstractPaymentHandler
             $choiceCriteria->addFilter(new EqualsFilter('customerId', $customerId));
             $choiceCriteria->addFilter(new EqualsFilter('subscriptionId', $subscriptionId));
 
-            /** @var SquareSubscriptionCardChoiceEntity $choice */
+            /** @var SquareSubscriptionCardChoiceEntity|null $choice */
             $choice = $this->squareSubscriptionCardChoiceRepository->search($choiceCriteria, $context)->first();
 
-            /* @phpstan-ignore-next-line */
             if ($choice && \is_string($choice->getSquareCardId()) && $choice->getSquareCardId() !== '') {
                 $existingCustomFields = $orderTransaction->getCustomFields() ?? [];
                 $recurringPayment = \is_array($existingCustomFields['recurringPayment'] ?? null) ? (array) $existingCustomFields['recurringPayment'] : [];
@@ -192,6 +195,39 @@ class CreditCard extends AbstractPaymentHandler
                 $recurringPayment['reference'] = $choice->getSquareCardId();
                 $meta['provider'] = 'square';
                 $meta['cardId'] = $choice->getSquareCardId();
+
+                if (!\is_string($meta['squareCustomerId'] ?? null) || (string) $meta['squareCustomerId'] === '') {
+                    try {
+                        $scContext = $this->salesChannelContextFactory->create(
+                            Uuid::randomHex(),
+                            (string) $order->getSalesChannelId()
+                        );
+                        $cardsPayload = $this->squareCardService->getSavedCards($scContext);
+                    } catch (\Throwable $e) {
+                        $cardsPayload = null;
+                    }
+
+                    if (\is_array($cardsPayload)) {
+                        $cards = $cardsPayload['cards'] ?? [];
+                        if (\is_array($cards)) {
+                            foreach ($cards as $card) {
+                                if (!\is_array($card)) {
+                                    continue;
+                                }
+                                if (($card['id'] ?? null) !== $choice->getSquareCardId()) {
+                                    continue;
+                                }
+                                $cid = $card['customer_id'] ?? $card['customerId'] ?? null;
+                                if (\is_string($cid) && $cid !== '') {
+                                    $meta['squareCustomerId'] = $cid;
+                                }
+                                $meta['subscriptionCard'] = $card;
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 $recurringPayment['meta'] = $meta;
 
                 $existingCustomFields['recurringPayment'] = $recurringPayment;

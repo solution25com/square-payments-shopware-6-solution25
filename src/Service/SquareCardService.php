@@ -49,37 +49,43 @@ class SquareCardService
             $result = $response->getResult();
             $this->logger->debug('Get saved cards', ['request' => $result]);
 
+            $cards = [];
 
-            // Array response: normalize to only the 'cards' key
             if (is_array($result)) {
-                return ['cards' => $result['cards'] ?? []];
+                $cards = $result['cards'] ?? [];
             }
 
-            // Object response: prefer getter, then jsonSerialize
-            if (is_object($result)) {
+            if ($cards === [] && is_object($result)) {
                 if (method_exists($result, 'getCards')) {
-                    $cards = $result->getCards();
-                    // Convert possible SDK objects to arrays
-                    $cardsArray = array_map(static function ($c) {
+                    $fromSdk = $result->getCards();
+                    $cards = array_map(static function ($c) {
                         if (is_object($c) && method_exists($c, 'jsonSerialize')) {
                             $serialized = $c->jsonSerialize();
-                            return is_array($serialized) ? $serialized : json_decode((string)json_encode($serialized), true);
+                            return is_array($serialized) ? $serialized : json_decode((string) json_encode($serialized), true);
                         }
-                        return is_array($c) ? $c : json_decode((string)json_encode($c), true);
-                    }, $cards ?? []);
-
-                    return ['cards' => $cardsArray];
-                }
-
-                if (method_exists($result, 'jsonSerialize')) {
+                        return is_array($c) ? $c : json_decode((string) json_encode($c), true);
+                    }, $fromSdk ?? []);
+                } elseif (method_exists($result, 'jsonSerialize')) {
                     $serialized = $result->jsonSerialize();
-                    $data = is_array($serialized) ? $serialized : json_decode((string)json_encode($serialized), true);
-
-                    return ['cards' => $data['cards'] ?? []];
+                    $data = is_array($serialized) ? $serialized : json_decode((string) json_encode($serialized), true);
+                    $cards = $data['cards'] ?? [];
                 }
             }
+
+            if (is_array($cards)) {
+                foreach ($cards as $i => $card) {
+                    if (!is_array($card)) {
+                        continue;
+                    }
+                    if (!isset($card['customer_id']) || !is_string($card['customer_id']) || $card['customer_id'] === '') {
+                        $card['customer_id'] = $squareCustomerId;
+                    }
+                    $cards[$i] = $card;
+                }
+            }
+
+            return ['cards' => $cards];
         } catch (ApiException $e) {
-            //todo log the error the file
         }
         return ['cards' => []];
     }

@@ -7,7 +7,7 @@
     locationIdSandbox: config('SquarePayments.config.locationIdSandbox'),
     locationIdProduction: config('SquarePayments.config.locationIdProduction'),
     paymentMode : config('SquarePayments.config.paymentMode'),
-    amount: page.cart.price.totalPrice ?? 0,
+    amount: page.extensions.squarepayments.amount ?? 0,
     currency: context.currency.shortName ?? '',
     isPaymentForm: true,
     translations: {
@@ -68,7 +68,7 @@
                     phone: context.customer.defaultBillingAddress.phoneNumber ?? '',
                     street: context.customer.defaultBillingAddress.street ?? '',
                     addressLine1: context.customer.defaultBillingAddress.additionalAddressLine1 ?? '',
-                    addressLine2: context.customer.defaultBillingAddresss.additionalAddressLine2 ?? '',
+                    addressLine2: context.customer.defaultBillingAddress.additionalAddressLine2 ?? '',
                     city: context.customer.defaultBillingAddress.city ?? '',
                     state:  context.customer.defaultBillingAddress.countryState.shortCode ?? '',
                     country: context.customer.defaultBillingAddress.country.iso ?? '',

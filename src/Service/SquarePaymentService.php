@@ -112,7 +112,19 @@ class SquarePaymentService
             $data['currency'] ?? $context->getCurrency()->getIsoCode()
         );
 
-        if (isset($data['minorAmount']) && ($data['minorAmount'] === true || $data['minorAmount'] === 1 || $data['minorAmount'] === '1')) {
+        $orderAmount = null;
+        if (isset($data['orderId']) && $data['orderId']) {
+            $criteria = new Criteria([$data['orderId']]);
+            $criteria->addAssociation('currency');
+            $order = $this->orderRepository->search($criteria, $context->getContext())->first();
+            if ($order) {
+                $orderAmount = $order->getAmountTotal();
+            }
+        }
+
+        if ($orderAmount !== null) {
+            $amountMinor = $this->toMinorUnit($orderAmount, $currency);
+        } elseif (isset($data['minorAmount']) && ($data['minorAmount'] === true || $data['minorAmount'] === 1 || $data['minorAmount'] === '1')) {
             $amountMinor = (int)($data['amount'] ?? 0);
         } else {
             $amountMinor = $this->toMinorUnit($data['amount'], $currency);

@@ -18,6 +18,8 @@
             <argument type="service" id="SquarePayments\Service\SquarePaymentService"/>
             <argument type="service" id="square_subscription_card_choice.repository"/>
             <argument type="service" id="SquarePayments\Storefront\Service\SquareSubscriptionIdExtractor"/>
+            <argument type="service" id="SquarePayments\Service\SquareCardService"/>
+            <argument type="service" id="Shopware\Core\System\SalesChannel\Context\SalesChannelContextFactory"/>
             <tag name="shopware.payment.method.payment_handler"/>
             <tag name="shopware.payment.method.sync"/>
         </service>
@@ -183,7 +185,10 @@
             <argument type="service" id="SquarePayments.logger"/>
             <tag name="kernel.event_subscriber"/>
         </service>
-
+        <service id="SquarePayments\EventSubscriber\S25SubscriptionPaymentMethodProviderSubscriber">
+            <argument type="service" id="SquarePayments\Service\SquareCardService"/>
+            <tag name="kernel.event_subscriber"/>
+        </service>
         <!-- End Event Subscribers -->
 
         <!-- Entity Extensions -->
