@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-03-02
+- Updated the subscription modal saved-card labels to display in the format “VISA •••• 1111 (12/2028)”.
+- Removed the Subscriptions grid from /account/squarepayments/saved-cards.
+
+---
+
 ## [1.0.7] - 2026-01-22
 
 ### Added
