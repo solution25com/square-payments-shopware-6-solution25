@@ -68,8 +68,8 @@ final class S25SubscriptionPaymentMethodProviderSubscriber implements EventSubsc
                 continue;
             }
 
-            $last4 = $card['last4'] ?? null;
-            $brand = $card['cardBrand'] ?? $card['brand'] ?? null;
+            $last4 = $card['last4'] ?? $card['last_4'] ?? null;
+            $brand = $card['cardBrand'] ?? $card['card_brand'] ?? $card['brand'] ?? null;
             $expMonth = $card['expMonth'] ?? $card['exp_month'] ?? null;
             $expYear = $card['expYear'] ?? $card['exp_year'] ?? null;
 
