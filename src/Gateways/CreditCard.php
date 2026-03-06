@@ -76,16 +76,32 @@ class CreditCard extends AbstractPaymentHandler
         }
 
         $dataBag = new RequestDataBag($request->request->all());
-
-        $status = $dataBag->get('squarepayments_payment_status');
         $transactionId = $dataBag->get('squarepayments_transaction_id');
 
-        if ($status !== 'success' || !\is_string($transactionId) || $transactionId === '') {
+        if (!\is_string($transactionId) || $transactionId === '') {
             $this->transactionStateHandler->fail($transaction->getOrderTransactionId(), $context);
 
             throw PaymentException::syncProcessInterrupted(
                 $transaction->getOrderTransactionId(),
-                'Square payment was not authorized. Please try again or select a different payment method.'
+                'Square payment id is missing. Please try again or select a different payment method.'
+            );
+        }
+
+        $paymentMode = (string) ($this->squareConfigService->get('paymentMode') ?? 'AUTHORIZE_AND_CAPTURE');
+        $expectedPayment = $this->getExpectedPaymentContext($transaction->getOrderTransactionId(), $context);
+        $verification = $this->squarePaymentService->verifyPaymentForExpectedAmount(
+            $transactionId,
+            $expectedPayment['amountMinor'],
+            $expectedPayment['currency'],
+            $paymentMode === 'AUTHORIZE_AND_CAPTURE'
+        );
+
+        if (($verification['status'] ?? 'error') !== 'success') {
+            $this->transactionStateHandler->fail($transaction->getOrderTransactionId(), $context);
+
+            throw PaymentException::syncProcessInterrupted(
+                $transaction->getOrderTransactionId(),
+                (string) ($verification['message'] ?? 'Square payment verification failed.')
             );
         }
 
@@ -117,14 +133,14 @@ class CreditCard extends AbstractPaymentHandler
             }
         }
 
-        switch ($this->squareConfigService->get('paymentMode')) {
+        switch ($paymentMode) {
             case 'AUTHORIZE_AND_CAPTURE':
                 $this->transactionStateHandler->paid($transaction->getOrderTransactionId(), $context);
-                $status = TransactionStatuses::PAID->value;
+                $transactionStatus = TransactionStatuses::PAID->value;
                 break;
             default:
                 $this->transactionStateHandler->authorize($transaction->getOrderTransactionId(), $context);
-                $status = TransactionStatuses::AUTHORIZED->value;
+                $transactionStatus = TransactionStatuses::AUTHORIZED->value;
                 break;
         }
 
@@ -132,13 +148,13 @@ class CreditCard extends AbstractPaymentHandler
             $this->getOrderIdFromTransaction($transaction->getOrderTransactionId(), $context),
             $this->getPaymentMethodName($transaction, $context),
             $transactionId,
-            $status,
+            $transactionStatus,
             $context,
             $isSubscription ? json_decode($subscriptionCard, true) : []
         );
-        $paymentDataRaw = $paymentData;
+        $paymentDataRaw = $verification['payment'] ?? $paymentData;
         $paymentData = is_array($paymentDataRaw) ? $paymentDataRaw : (json_decode((string)$paymentDataRaw, true) ?: []);
-        $this->transactionLogger->logTransaction($status, $paymentData, $this->getOrderIdFromTransaction($transaction->getOrderTransactionId(), $context), $context, $squareTransactionId);
+        $this->transactionLogger->logTransaction($transactionStatus, $paymentData, $this->getOrderIdFromTransaction($transaction->getOrderTransactionId(), $context), $context, $squareTransactionId);
         return null;
     }
 
@@ -294,41 +310,58 @@ class CreditCard extends AbstractPaymentHandler
         Context $context
     ): void {
         $dataBag = new RequestDataBag($request->request->all());
-        $status = $dataBag->get('status');
-        $paymentData = $dataBag->get('square_payment_data');
         $squarePaymentsTransactionId = $dataBag->get('squarepayments_transaction_id');
-        if ($status === 'success' && $squarePaymentsTransactionId) {
+        if (\is_string($squarePaymentsTransactionId) && $squarePaymentsTransactionId !== '') {
             $paymentMode = $this->squareConfigService->get('paymentMode');
+            $expectedPayment = $this->getExpectedPaymentContext($transaction->getOrderTransactionId(), $context);
+            $verification = $this->squarePaymentService->verifyPaymentForExpectedAmount(
+                $squarePaymentsTransactionId,
+                $expectedPayment['amountMinor'],
+                $expectedPayment['currency'],
+                $paymentMode === 'AUTHORIZE_AND_CAPTURE'
+            );
+
+            if (($verification['status'] ?? 'error') !== 'success') {
+                $this->logger->warning('Finalize failed: Square verification failed', [
+                    'orderTransactionId' => $transaction->getOrderTransactionId(),
+                    'transactionId' => $squarePaymentsTransactionId,
+                    'reason' => $verification['message'] ?? 'unknown',
+                ]);
+                $this->transactionStateHandler->fail($transaction->getOrderTransactionId(), $context);
+                return;
+            }
+
             $orderId = $this->getOrderIdFromTransaction($transaction->getOrderTransactionId(), $context);
             $paymentMethodName = $this->getPaymentMethodName($transaction, $context);
 
             switch ($paymentMode) {
                 case TransactionType::STORE->value:
                     $this->transactionStateHandler->authorize($transaction->getOrderTransactionId(), $context);
+                    $transactionStatus = TransactionStatuses::AUTHORIZED->value;
                     $squareTransactionId = $this->transactionService->addTransaction(
                         $orderId,
                         $paymentMethodName,
                         $squarePaymentsTransactionId,
-                        TransactionStatuses::AUTHORIZED->value,
+                        $transactionStatus,
                         $context
                     );
                     break;
                 default:
                     $this->transactionStateHandler->paid($transaction->getOrderTransactionId(), $context);
+                    $transactionStatus = TransactionStatuses::PAID->value;
                     $squareTransactionId = $this->transactionService->addTransaction(
                         $orderId,
                         $paymentMethodName,
                         $squarePaymentsTransactionId,
-                        TransactionStatuses::PAID->value,
+                        $transactionStatus,
                         $context
                     );
                     break;
             }
-            $paymentData = is_array($paymentData) ? $paymentData : json_decode($paymentData, true);
-            $this->transactionLogger->logTransaction($status, $paymentData, $orderId, $context, $squareTransactionId);
+            $paymentData = $verification['payment'] ?? [];
+            $this->transactionLogger->logTransaction($transactionStatus, is_array($paymentData) ? $paymentData : [], $orderId, $context, $squareTransactionId);
         } else {
             $this->logger->warning('Finalize failed: Invalid status or transaction ID', [
-                'status' => $status,
                 'transactionId' => $squarePaymentsTransactionId,
             ]);
             $this->transactionStateHandler->fail($transaction->getOrderTransactionId(), $context);
@@ -385,5 +418,43 @@ class CreditCard extends AbstractPaymentHandler
         }
 
         return [];
+    }
+
+    /**
+     * @return array{amountMinor:int,currency:string}
+     */
+    private function getExpectedPaymentContext(string $orderTransactionId, Context $context): array
+    {
+        $criteria = new Criteria([$orderTransactionId]);
+        $criteria->addAssociation('order.currency');
+        $orderTransaction = $this->orderTransactionRepository->search($criteria, $context)->first();
+
+        if (!$orderTransaction instanceof OrderTransactionEntity || !$orderTransaction->getOrder() instanceof OrderEntity) {
+            throw PaymentException::syncProcessInterrupted($orderTransactionId, 'Order transaction data is missing for verification.');
+        }
+
+        $order = $orderTransaction->getOrder();
+        $currency = strtoupper((string) ($order->getCurrency()?->getIsoCode() ?? ''));
+        if ($currency === '') {
+            throw PaymentException::syncProcessInterrupted($orderTransactionId, 'Order currency is missing for verification.');
+        }
+
+        $amountMinor = $this->toMinorUnit((float) $order->getAmountTotal(), $currency);
+
+        return [
+            'amountMinor' => $amountMinor,
+            'currency' => $currency,
+        ];
+    }
+
+    private function toMinorUnit(float $amount, string $currency): int
+    {
+        $zeroDecimalCurrencies = ['JPY', 'KRW', 'VND', 'CLP', 'UGX', 'XAF', 'XOF', 'KMF'];
+
+        if (\in_array(strtoupper($currency), $zeroDecimalCurrencies, true)) {
+            return (int) round($amount);
+        }
+
+        return (int) round($amount * 100);
     }
 }

@@ -15,6 +15,7 @@ use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
 use SquarePayments\Library\TransactionStatuses;
 use SquarePayments\Service\SquarePaymentsTransactionService;
 use SquarePayments\Service\SquareConfigService;
+use SquarePayments\Service\SquarePaymentService;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Shopware\Core\Framework\Context;
@@ -42,7 +43,8 @@ class ApplePay extends AbstractPaymentHandler
         SquarePaymentsTransactionService $squarePaymentsTransactionService,
         EntityRepository $orderTransactionRepository,
         EntityRepository $paymentMethodRepository,
-        private readonly SquareConfigService $squareConfigService
+        private readonly SquareConfigService $squareConfigService,
+        private readonly SquarePaymentService $squarePaymentService
     ) {
         $this->transactionStateHandler = $transactionStateHandler;
         $this->squarePaymentsTransactionService = $squarePaymentsTransactionService;
@@ -71,6 +73,21 @@ class ApplePay extends AbstractPaymentHandler
         if (!\is_string($squarePaymentsTransactionId) || $squarePaymentsTransactionId === '') {
             $this->transactionStateHandler->fail($transaction->getOrderTransactionId(), $context);
             throw PaymentException::syncProcessInterrupted($transaction->getOrderTransactionId(), 'Missing Square transaction id.');
+        }
+
+        $expectedPayment = $this->getExpectedPaymentContext($transaction->getOrderTransactionId(), $context);
+        $verification = $this->squarePaymentService->verifyPaymentForExpectedAmount(
+            $squarePaymentsTransactionId,
+            $expectedPayment['amountMinor'],
+            $expectedPayment['currency'],
+            true
+        );
+        if (($verification['status'] ?? 'error') !== 'success') {
+            $this->transactionStateHandler->fail($transaction->getOrderTransactionId(), $context);
+            throw PaymentException::syncProcessInterrupted(
+                $transaction->getOrderTransactionId(),
+                (string) ($verification['message'] ?? 'Square payment verification failed.')
+            );
         }
         $ext = $context->getExtension('paymentMethodName');
         if ($ext instanceof ArrayStruct) {
@@ -121,5 +138,41 @@ class ApplePay extends AbstractPaymentHandler
         }
 
         throw new \RuntimeException('Order ID not found for transaction ID: ' . $orderTransactionId);
+    }
+
+    /**
+     * @return array{amountMinor:int,currency:string}
+     */
+    private function getExpectedPaymentContext(string $orderTransactionId, Context $context): array
+    {
+        $criteria = new Criteria([$orderTransactionId]);
+        $criteria->addAssociation('order.currency');
+        $orderTransaction = $this->orderTransactionRepository->search($criteria, $context)->first();
+
+        if (!$orderTransaction instanceof OrderTransactionEntity || !$orderTransaction->getOrder()) {
+            throw PaymentException::syncProcessInterrupted($orderTransactionId, 'Order transaction data is missing for verification.');
+        }
+
+        $order = $orderTransaction->getOrder();
+        $currency = strtoupper((string) ($order->getCurrency()?->getIsoCode() ?? ''));
+        if ($currency === '') {
+            throw PaymentException::syncProcessInterrupted($orderTransactionId, 'Order currency is missing for verification.');
+        }
+
+        return [
+            'amountMinor' => $this->toMinorUnit((float) $order->getAmountTotal(), $currency),
+            'currency' => $currency,
+        ];
+    }
+
+    private function toMinorUnit(float $amount, string $currency): int
+    {
+        $zeroDecimalCurrencies = ['JPY', 'KRW', 'VND', 'CLP', 'UGX', 'XAF', 'XOF', 'KMF'];
+
+        if (\in_array(strtoupper($currency), $zeroDecimalCurrencies, true)) {
+            return (int) round($amount);
+        }
+
+        return (int) round($amount * 100);
     }
 }

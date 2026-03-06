@@ -72,6 +72,71 @@ class SquarePaymentService
         }
     }
 
+    /**
+     * @return array{status:string,message?:string,payment?:array<string,mixed>}
+     */
+    public function verifyPaymentForExpectedAmount(
+        string $paymentId,
+        int $expectedAmountMinor,
+        string $expectedCurrency,
+        bool $expectCaptured
+    ): array {
+        if ($paymentId === '') {
+            return ['status' => 'error', 'message' => 'Square payment id is required'];
+        }
+
+        try {
+            $response = $this->client->getPaymentsApi()->getPayment($paymentId);
+            $result = $response->getResult();
+            $payment = $this->extractPaymentFromResult($result);
+
+            if ($payment === null) {
+                return ['status' => 'error', 'message' => 'Square payment could not be retrieved'];
+            }
+
+            $status = strtoupper((string) ($payment['status'] ?? ''));
+            $allowedStatuses = $expectCaptured ? ['COMPLETED'] : ['APPROVED', 'COMPLETED'];
+
+            if (!\in_array($status, $allowedStatuses, true)) {
+                return [
+                    'status' => 'error',
+                    'message' => 'Unexpected Square payment status: ' . $status,
+                ];
+            }
+
+            $amountMoney = \is_array($payment['amount_money'] ?? null) ? $payment['amount_money'] : [];
+            $amountMinor = (int) ($amountMoney['amount'] ?? -1);
+            $currency = strtoupper((string) ($amountMoney['currency'] ?? ''));
+            $expectedCurrency = strtoupper($expectedCurrency);
+
+            if ($amountMinor !== $expectedAmountMinor) {
+                return [
+                    'status' => 'error',
+                    'message' => sprintf(
+                        'Square amount mismatch. expected=%d actual=%d',
+                        $expectedAmountMinor,
+                        $amountMinor
+                    ),
+                ];
+            }
+
+            if ($currency !== $expectedCurrency) {
+                return [
+                    'status' => 'error',
+                    'message' => sprintf(
+                        'Square currency mismatch. expected=%s actual=%s',
+                        $expectedCurrency,
+                        $currency
+                    ),
+                ];
+            }
+
+            return ['status' => 'success', 'payment' => $payment];
+        } catch (\Throwable $e) {
+            return ['status' => 'error', 'message' => $e->getMessage()];
+        }
+    }
+
     /** @return array<string,mixed> */
     public function voidPayment(string $paymentId): array
     {
@@ -284,6 +349,47 @@ class SquarePaymentService
         $isZeroDecimal = \in_array(strtoupper($currency), $zeroDecimalCurrencies, true);
 
         return $isZeroDecimal ? (int)round($value) : (int)round($value * 100);
+    }
+
+    /**
+     * @param mixed $result
+     * @return array<string,mixed>|null
+     */
+    private function extractPaymentFromResult(mixed $result): ?array
+    {
+        if (\is_array($result)) {
+            $payment = $result['payment'] ?? null;
+            if (\is_array($payment)) {
+                return $payment;
+            }
+            if ($payment !== null) {
+                $decoded = json_decode((string) json_encode($payment), true);
+                return \is_array($decoded) ? $decoded : null;
+            }
+            return null;
+        }
+
+        if (\is_object($result) && method_exists($result, 'getPayment')) {
+            $payment = $result->getPayment();
+            if ($payment === null) {
+                return null;
+            }
+            if (\is_object($payment) && method_exists($payment, 'jsonSerialize')) {
+                $serialized = $payment->jsonSerialize();
+                if (\is_array($serialized)) {
+                    return $serialized;
+                }
+                $decoded = json_decode((string) json_encode($serialized), true);
+                return \is_array($decoded) ? $decoded : null;
+            }
+            if (\is_array($payment)) {
+                return $payment;
+            }
+            $decoded = json_decode((string) json_encode($payment), true);
+            return \is_array($decoded) ? $decoded : null;
+        }
+
+        return null;
     }
 
     public function generateIdempotencyKey(): string

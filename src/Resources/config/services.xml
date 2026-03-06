@@ -30,6 +30,7 @@
             <argument type="service" id="order_transaction.repository"/>
             <argument type="service" id="payment_method.repository"/>
             <argument type="service" id="SquarePayments\Service\SquareConfigService"/>
+            <argument type="service" id="SquarePayments\Service\SquarePaymentService"/>
             <tag name="shopware.payment.method.payment_handler"/>
             <tag name="shopware.payment.method.sync"/>
         </service>
@@ -40,6 +41,7 @@
             <argument type="service" id="order_transaction.repository"/>
             <argument type="service" id="payment_method.repository"/>
             <argument type="service" id="SquarePayments\Service\SquareConfigService"/>
+            <argument type="service" id="SquarePayments\Service\SquarePaymentService"/>
             <tag name="shopware.payment.method.payment_handler"/>
             <tag name="shopware.payment.method.sync"/>
         </service>
