@@ -70,6 +70,34 @@ class WebHookService
         }
     }
 
+    public function isValidWebhookSignature(Request $request): bool
+    {
+        $signature = trim((string) $request->headers->get('x-square-hmacsha256-signature', ''));
+        if ($signature === '') {
+            $this->logger?->warning('Square webhook signature header is missing');
+            return false;
+        }
+
+        $body = $request->getContent();
+        $notificationUrl = rtrim($request->getSchemeAndHttpHost(), '/') . $request->getPathInfo();
+        $keys = $this->getWebhookSignatureKeys();
+
+        if ($keys === []) {
+            $this->logger?->warning('Square webhook signature key is not configured');
+            return false;
+        }
+
+        foreach ($keys as $key) {
+            $expected = base64_encode(hash_hmac('sha256', $notificationUrl . $body, $key, true));
+            if (hash_equals($expected, $signature)) {
+                return true;
+            }
+        }
+
+        $this->logger?->warning('Square webhook signature validation failed');
+        return false;
+    }
+
     private function syncOrderPaymentStatusWithWebhook(string $paymentId, string $webhookStatus, Context $context): bool
     {
         $criteria = new Criteria();
@@ -244,5 +272,33 @@ class WebHookService
             return ['active' => true, 'webhookId' => $result->getSubscription()->getId()];
         }
         return ['active' => false, 'message' => 'Failed to create webhook subscription'];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function getWebhookSignatureKeys(): array
+    {
+        $mode = (string) ($this->squareConfigService->get('mode') ?? 'sandbox');
+        $isProduction = $mode === 'production';
+
+        $primaryKey = (string) ($isProduction
+            ? ($this->squareConfigService->get('webhookSignatureKeyProduction') ?? '')
+            : ($this->squareConfigService->get('webhookSignatureKeySandbox') ?? '')
+        );
+        $secondaryKey = (string) ($isProduction
+            ? ($this->squareConfigService->get('webhookSignatureKeySandbox') ?? '')
+            : ($this->squareConfigService->get('webhookSignatureKeyProduction') ?? '')
+        );
+
+        $keys = [];
+        foreach ([$primaryKey, $secondaryKey] as $key) {
+            if ($key === '' || \in_array($key, $keys, true)) {
+                continue;
+            }
+            $keys[] = $key;
+        }
+
+        return $keys;
     }
 }

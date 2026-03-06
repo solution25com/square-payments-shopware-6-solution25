@@ -23,6 +23,10 @@ class WebHookController extends StorefrontController
     #[Route('/squarepayments/webhook/accept', name: 'squarepayments.webhook.accept', methods: ['POST'])]
     public function acceptWebhook(Request $request, SalesChannelContext $context): Response
     {
+        if (!$this->webHookService->isValidWebhookSignature($request)) {
+            return new Response('Invalid webhook signature', 401);
+        }
+
         $result = $this->webHookService->accept($request, $context->getContext());
         return new Response($result ? 'Webhook accepted' : 'Webhook failed', $result ? 200 : 400);
     }

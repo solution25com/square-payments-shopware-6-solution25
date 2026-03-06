@@ -50,6 +50,12 @@
             <label>Production Access token </label>
         </input-field>
 
+        <input-field type="password">
+            <name>webhookSignatureKeyProduction</name>
+            <label>Production Webhook Signature Key</label>
+            <helpText>Used to validate Square webhook signatures for production notifications.</helpText>
+        </input-field>
+
         <input-field type="text">
             <name>locationIdProduction</name>
             <label>Production Location ID</label>
@@ -78,6 +84,12 @@
         <input-field type="password">
             <name>accessTokenSandbox</name>
             <label>Sandbox Access token</label>
+        </input-field>
+
+        <input-field type="password">
+            <name>webhookSignatureKeySandbox</name>
+            <label>Sandbox Webhook Signature Key</label>
+            <helpText>Used to validate Square webhook signatures for sandbox notifications.</helpText>
         </input-field>
 
         <input-field type="text">
@@ -126,4 +138,3 @@
         </input-field>
     </card>
 </config>
-
