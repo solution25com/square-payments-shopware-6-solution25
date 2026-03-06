@@ -146,6 +146,7 @@
         <service id="SquarePayments\Controller\SquarePaymentsApiController" public="true">
             <argument type="service" id="SquarePayments\Service\SquareApiTestService"/>
             <argument type="service" id="SquarePayments\Service\SquarePaymentService"/>
+            <argument type="service" id="SquarePayments\Service\WebHookService"/>
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>

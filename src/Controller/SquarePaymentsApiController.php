@@ -3,12 +3,11 @@
 namespace SquarePayments\Controller;
 
 use Shopware\Core\Framework\Context;
-use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use SquarePayments\Service\SquarePaymentService;
+use SquarePayments\Service\WebHookService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use SquarePayments\Service\SquareApiTestService;
 
@@ -17,7 +16,8 @@ class SquarePaymentsApiController extends AbstractController
 {
     public function __construct(
         private readonly SquareApiTestService $apiTestService,
-        private readonly SquarePaymentService $paymentService
+        private readonly SquarePaymentService $paymentService,
+        private readonly WebHookService $webHookService
     ) {
     }
 
@@ -61,5 +61,77 @@ class SquarePaymentsApiController extends AbstractController
         $orderId = $payload['orderId'] ?? null;
         $squareCustomerId = $payload['squareCustomerId'] ?? null;
         return new JsonResponse($this->paymentService->requiringPayment($cardId, $orderId, $squareCustomerId, $context));
+    }
+
+    #[Route(
+        path: '/api/_action/squarepayments/webhook/status',
+        name: 'api.squarepayments.webhook.status',
+        methods: ['GET'],
+        defaults: ['_acl' => ['system_config:read']]
+    )]
+    public function webhookStatus(Request $request): JsonResponse
+    {
+        $environment = $this->resolveEnvironment($request);
+        if ($environment === null) {
+            return new JsonResponse(['success' => false, 'message' => 'Invalid environment'], 400);
+        }
+
+        return new JsonResponse($this->webHookService->getStatus($environment));
+    }
+
+    #[Route(
+        path: '/api/_action/squarepayments/webhook/create',
+        name: 'api.squarepayments.webhook.create',
+        methods: ['POST'],
+        defaults: ['_acl' => ['system_config:write']]
+    )]
+    public function webhookCreate(Request $request): JsonResponse
+    {
+        $environment = $this->resolveEnvironment($request);
+        if ($environment === null) {
+            return new JsonResponse(['success' => false, 'message' => 'Invalid environment'], 400);
+        }
+
+        return new JsonResponse($this->webHookService->save($request, $environment));
+    }
+
+    #[Route(
+        path: '/api/_action/squarepayments/webhook/delete',
+        name: 'api.squarepayments.webhook.delete',
+        methods: ['POST'],
+        defaults: ['_acl' => ['system_config:write']]
+    )]
+    public function webhookDelete(Request $request): JsonResponse
+    {
+        $environment = $this->resolveEnvironment($request);
+        if ($environment === null) {
+            return new JsonResponse(['success' => false, 'message' => 'Invalid environment'], 400);
+        }
+
+        $result = $this->webHookService->delete($environment);
+        $response = [
+            'success' => $result,
+            'message' => $result ? 'Webhook deleted successfully' : 'Failed to delete webhook',
+        ];
+
+        return new JsonResponse($response);
+    }
+
+    private function resolveEnvironment(Request $request): ?string
+    {
+        $environment = trim((string) $request->query->get('environment'));
+
+        if ($environment === '') {
+            $payload = json_decode($request->getContent(), true);
+            if (\is_array($payload)) {
+                $environment = trim((string) ($payload['environment'] ?? ''));
+            }
+        }
+
+        if (!\in_array($environment, ['sandbox', 'production'], true)) {
+            return null;
+        }
+
+        return $environment;
     }
 }

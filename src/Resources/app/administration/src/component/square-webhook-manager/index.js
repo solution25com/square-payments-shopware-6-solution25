@@ -4,6 +4,7 @@ const { Component } = Shopware;
 
 Component.register('square-webhook-manager', {
     template,
+    inject: ['squareWebhookService'],
     props: {
         environment: {
             type: String,
@@ -25,8 +26,7 @@ Component.register('square-webhook-manager', {
         async fetchStatus() {
             this.isLoading = true;
             try {
-                const response = await fetch(`/squarepayments/webhook/status?environment=${this.environment}`);
-                const data = await response.json();
+                const data = await this.squareWebhookService.status(this.environment);
                 this.isActive = data.active;
                 this.webhookId = data.webhookId;
                 this.error = null;
@@ -39,8 +39,7 @@ Component.register('square-webhook-manager', {
         async activateWebhook() {
             this.isLoading = true;
             try {
-                const response = await fetch(`/squarepayments/webhook/create?environment=${this.environment}`, { method: 'POST' });
-                const data = await response.json();
+                const data = await this.squareWebhookService.create(this.environment);
                 if (data.success) {
                     this.isActive = true;
                     this.webhookId = data.webhookId;
@@ -57,8 +56,7 @@ Component.register('square-webhook-manager', {
         async deactivateWebhook() {
             this.isLoading = true;
             try {
-                const response = await fetch(`/squarepayments/webhook/delete?environment=${this.environment}`, { method: 'POST' });
-                const data = await response.json();
+                const data = await this.squareWebhookService.delete(this.environment);
                 if (data.success) {
                     this.isActive = false;
                     this.webhookId = null;
