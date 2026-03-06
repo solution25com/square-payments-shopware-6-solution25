@@ -91,9 +91,7 @@
         <service id="SquarePayments\Service\SquareApiFactory" public="true">
             <argument type="service" id="SquarePayments\Service\SquareConfigService"/>
         </service>
-        <service id="SquarePayments\Service\ResponseHandleService" >
-            <argument type="service" id="SquarePayments.logger"/>
-        </service>
+        <service id="SquarePayments\Service\ResponseHandleService" />
         <service id="SquarePayments\Service\SquareApiTestService" >
             <argument type="service" id="SquarePayments.logger"/>
             <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
