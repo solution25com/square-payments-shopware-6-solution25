@@ -61,6 +61,7 @@
             <argument type="service" id="Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionStateHandler"/>
             <argument type="service" id="SquarePayments\Service\SquarePaymentsTransactionService"/>
             <argument type="service" id="order.repository"/>
+            <argument type="service" id="Shopware\Core\Checkout\Cart\SalesChannel\CartService"/>
             <argument type="service" id="SquarePayments\Service\TransactionLogger"/>
         </service>
         <service id="SquarePayments\Service\TransactionLogger">

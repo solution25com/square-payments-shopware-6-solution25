@@ -3,6 +3,7 @@
 namespace SquarePayments\Service;
 
 use Psr\Log\LoggerInterface;
+use Shopware\Core\Checkout\Cart\SalesChannel\CartService;
 use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionStateHandler;
 use Shopware\Core\Checkout\Order\OrderEntity;
 use Shopware\Core\Framework\Context;
@@ -32,6 +33,7 @@ class SquarePaymentService
     public SquarePaymentsTransactionService $transactionService;
     /** @var EntityRepository<OrderCollection> */
     private EntityRepository $orderRepository;
+    private CartService $cartService;
     private TransactionLogger $transactionLogger;
     /** @param EntityRepository<OrderCollection> $orderRepository */
     public function __construct(
@@ -43,6 +45,7 @@ class SquarePaymentService
         OrderTransactionStateHandler $transactionStateHandler,
         SquarePaymentsTransactionService $transactionService,
         EntityRepository $orderRepository,
+        CartService $cartService,
         TransactionLogger $transactionLogger
     ) {
         $this->squareConfigService = $squareConfigService;
@@ -54,6 +57,7 @@ class SquarePaymentService
         $this->transactionStateHandler = $transactionStateHandler;
         $this->transactionService = $transactionService;
         $this->orderRepository = $orderRepository;
+        $this->cartService = $cartService;
         $this->transactionLogger = $transactionLogger;
     }
 
@@ -108,27 +112,13 @@ class SquarePaymentService
                 $context->getContext()
             );
         }
-        $currency = strtoupper(
-            $data['currency'] ?? $context->getCurrency()->getIsoCode()
-        );
-
-        $orderAmount = null;
-        if (isset($data['orderId']) && $data['orderId']) {
-            $criteria = new Criteria([$data['orderId']]);
-            $criteria->addAssociation('currency');
-            $order = $this->orderRepository->search($criteria, $context->getContext())->first();
-            if ($order) {
-                $orderAmount = $order->getAmountTotal();
-            }
+        $amountContext = $this->resolveAmountContext($data, $context);
+        if (($amountContext['status'] ?? 'error') !== 'success') {
+            return ['status' => 'error', 'message' => (string) ($amountContext['message'] ?? 'Unable to resolve order amount')];
         }
 
-        if ($orderAmount !== null) {
-            $amountMinor = $this->toMinorUnit($orderAmount, $currency);
-        } elseif (isset($data['minorAmount']) && ($data['minorAmount'] === true || $data['minorAmount'] === 1 || $data['minorAmount'] === '1')) {
-            $amountMinor = (int)($data['amount'] ?? 0);
-        } else {
-            $amountMinor = $this->toMinorUnit($data['amount'], $currency);
-        }
+        $currency = (string) $amountContext['currency'];
+        $amountMinor = (int) $amountContext['amountMinor'];
 
         $money = new Money();
         $money->setAmount($amountMinor);
@@ -284,6 +274,55 @@ class SquarePaymentService
         $isZeroDecimal = \in_array(strtoupper($currency), $zeroDecimalCurrencies, true);
 
         return $isZeroDecimal ? (int)round($value) : (int)round($value * 100);
+    }
+
+    /**
+     * @param array<string,mixed> $data
+     * @return array{status:string,amountMinor?:int,currency?:string,message?:string}
+     */
+    private function resolveAmountContext(array $data, SalesChannelContext $context): array
+    {
+        $orderId = isset($data['orderId']) && \is_string($data['orderId']) ? trim($data['orderId']) : '';
+        $customerId = $context->getCustomer()?->getId();
+
+        if ($orderId !== '') {
+            $criteria = new Criteria([$orderId]);
+            $criteria->addAssociation('currency');
+            $criteria->addAssociation('orderCustomer');
+            $order = $this->orderRepository->search($criteria, $context->getContext())->first();
+
+            if (!$order instanceof OrderEntity) {
+                return ['status' => 'error', 'message' => 'Order not found'];
+            }
+
+            $orderCustomerId = $order->getOrderCustomer()?->getCustomerId();
+            if ($customerId && $orderCustomerId !== $customerId) {
+                return ['status' => 'error', 'message' => 'Order does not belong to current customer'];
+            }
+
+            $currency = strtoupper((string) ($order->getCurrency()?->getIsoCode() ?? ''));
+            if ($currency === '') {
+                return ['status' => 'error', 'message' => 'Order currency not found'];
+            }
+
+            return [
+                'status' => 'success',
+                'amountMinor' => $this->toMinorUnit((float) $order->getAmountTotal(), $currency),
+                'currency' => $currency,
+            ];
+        }
+
+        $cart = $this->cartService->getCart($context->getToken(), $context);
+        $currency = strtoupper((string) ($context->getCurrency()->getIsoCode() ?? ''));
+        if ($currency === '') {
+            return ['status' => 'error', 'message' => 'Currency not available in sales channel context'];
+        }
+
+        return [
+            'status' => 'success',
+            'amountMinor' => $this->toMinorUnit((float) $cart->getPrice()->getTotalPrice(), $currency),
+            'currency' => $currency,
+        ];
     }
 
     public function generateIdempotencyKey(): string
