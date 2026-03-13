@@ -293,14 +293,17 @@ class SquareCardService
     public function getAddress(array $billingAddress): SqAddress
     {
         $address = new Address();
-        $address->setFirstName($billingAddress['firstName'] ?? null);
-        $address->setLastName($billingAddress['lastName'] ?? null);
-        $address->setAddressLine1($billingAddress['addressLine1'] ?? null);
-        $address->setAddressLine2($billingAddress['addressLine2'] ?? null);
-        $address->setAddressLine3($billingAddress['addressLine3'] ?? null);
-        $address->setCountry($billingAddress['country'] ?? null);
-        $address->setLocality($billingAddress['locality'] ?? null);
-        $address->setPostalCode($billingAddress['postalCode'] ?? null);
+        $addressLines = $billingAddress['addressLines'] ?? [];
+
+        $address->setFirstName($billingAddress['firstName'] ?? $billingAddress['givenName'] ?? null);
+        $address->setLastName($billingAddress['lastName'] ?? $billingAddress['familyName'] ?? null);
+        $address->setAddressLine1($billingAddress['addressLine1'] ?? $addressLines[0] ?? null);
+        $address->setAddressLine2($billingAddress['addressLine2'] ?? $addressLines[1] ?? null);
+        $address->setAddressLine3($billingAddress['addressLine3'] ?? $addressLines[2] ?? null);
+        $address->setCountry($billingAddress['country'] ?? $billingAddress['countryCode'] ?? null);
+        $address->setLocality($billingAddress['locality'] ?? $billingAddress['city'] ?? null);
+        $address->setAdministrativeDistrictLevel1($billingAddress['administrativeDistrictLevel1'] ?? $billingAddress['state'] ?? null);
+        $address->setPostalCode($billingAddress['postalCode'] ?? $billingAddress['zipcode'] ?? $billingAddress['zip'] ?? null);
         return $address;
     }
 }

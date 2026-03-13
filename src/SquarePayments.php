@@ -17,11 +17,14 @@ use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Plugin\Util\PluginIdProvider;
+use SquarePayments\Migration\Migration1773000000BackfillSquareSubscriptionCardChoice;
 
 class SquarePayments extends Plugin
 {
     public function install(InstallContext $installContext): void
     {
+        $this->skipS25BackfillMigrationIfUnsupported();
+
         foreach (PaymentMethods::PAYMENT_METHODS as $paymentMethod) {
             $this->addPaymentMethod(new $paymentMethod(), $installContext->getContext());
         }
@@ -56,7 +59,7 @@ class SquarePayments extends Plugin
 
     public function update(UpdateContext $updateContext): void
     {
-        // Update necessary stuff, mostly non-database related
+        $this->skipS25BackfillMigrationIfUnsupported();
     }
 
     public function postInstall(InstallContext $installContext): void
@@ -146,6 +149,37 @@ class SquarePayments extends Plugin
         $connection->executeStatement('DELETE FROM `migration` WHERE `class` LIKE :square_payments;', [
             'square_payments' => '%SquarePayments%',
         ]);
+    }
+
+    private function skipS25BackfillMigrationIfUnsupported(): void
+    {
+        if ($this->container === null) {
+            throw new \RuntimeException('Container is not set.');
+        }
+
+        $connection = $this->container->get(Connection::class);
+        if (!$connection instanceof Connection) {
+            throw new \RuntimeException('Could not retrieve Doctrine DBAL Connection.');
+        }
+
+        $subscriptionTablesExist = (int) $connection->fetchOne(<<<SQL
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME IN ('s25_subscription', 's25_subscription_customer');
+        SQL);
+
+        if ($subscriptionTablesExist >= 2) {
+            return;
+        }
+
+        $connection->executeStatement(
+            'UPDATE `migration`
+                SET `message` = NULL,
+                    `update` = COALESCE(`update`, NOW(6))
+              WHERE `class` = :class',
+            ['class' => Migration1773000000BackfillSquareSubscriptionCardChoice::class]
+        );
     }
 
     public function executeComposerCommands(): bool

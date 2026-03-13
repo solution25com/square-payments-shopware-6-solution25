@@ -34,6 +34,7 @@ use Shopware\Core\Checkout\Payment\PaymentMethodCollection;
 use Shopware\Core\Framework\Uuid\Uuid;
 use SquarePayments\Storefront\Service\SquareSubscriptionIdExtractor;
 use Shopware\Core\System\SalesChannel\Context\AbstractSalesChannelContextFactory;
+use SquarePayments\Service\SquareSubscriptionPaymentTokenService;
 
 class CreditCard extends AbstractPaymentHandler
 {
@@ -54,6 +55,7 @@ class CreditCard extends AbstractPaymentHandler
         private readonly SquareSubscriptionIdExtractor $subscriptionIdExtractor,
         private readonly SquareCardService $squareCardService,
         private readonly AbstractSalesChannelContextFactory $salesChannelContextFactory,
+        private readonly SquareSubscriptionPaymentTokenService $subscriptionPaymentTokenService,
     ) {
     }
 
@@ -96,24 +98,51 @@ class CreditCard extends AbstractPaymentHandler
         if ($isSubscription && $subscriptionCard !== '') {
             $decodedSubscriptionCard = json_decode((string) $subscriptionCard, true);
             if (\is_array($decodedSubscriptionCard)) {
-                $existingCustomFields = $this->getOrderTransactionCustomFields($transaction->getOrderTransactionId(), $context);
+                $cardId = $decodedSubscriptionCard['id'] ?? null;
+                $squareCustomerId = $decodedSubscriptionCard['customer_id'] ?? null;
 
-                $existingCustomFields['recurringPayment'] = [
-                    'reference' => $decodedSubscriptionCard['id'] ?? null,
-                    'meta' => [
-                        'provider' => 'square',
-                        'cardId' => $decodedSubscriptionCard['id'] ?? null,
-                        'squareCustomerId' => $decodedSubscriptionCard['customer_id'] ?? null,
-                        'subscriptionCard' => $decodedSubscriptionCard,
-                    ],
-                ];
+                if ($cardId !== null && $squareCustomerId !== null) {
+                    $existingCustomFields = $this->getOrderTransactionCustomFields($transaction->getOrderTransactionId(), $context);
 
-                $this->orderTransactionRepository->upsert([
-                    [
-                        'id' => $transaction->getOrderTransactionId(),
-                        'customFields' => $existingCustomFields,
-                    ]
-                ], $context);
+                    $existingCustomFields['recurringPayment'] = [
+                        'reference' => $cardId,
+                        'meta' => [
+                            'provider' => 'square',
+                            'cardId' => $cardId,
+                            'squareCustomerId' => $squareCustomerId,
+                            'subscriptionCard' => $decodedSubscriptionCard,
+                        ],
+                    ];
+
+                    $this->orderTransactionRepository->upsert([
+                        [
+                            'id' => $transaction->getOrderTransactionId(),
+                            'customFields' => $existingCustomFields,
+                        ]
+                    ], $context);
+
+                    try {
+                        $order = $this->getOrderFromTransaction($transaction->getOrderTransactionId(), $context);
+                        if ($order !== null) {
+                            $customerId = $order->getOrderCustomer()?->getCustomerId();
+                            $subscriptionId = $this->subscriptionIdExtractor->extract($order);
+                            
+                            if (\is_string($customerId) && $customerId !== '' && \is_string($subscriptionId) && Uuid::isValid($subscriptionId)) {
+                                $this->subscriptionPaymentTokenService->setCardChoice(
+                                    $subscriptionId,
+                                    $customerId,
+                                    $cardId,
+                                    $context
+                                );
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        $this->logger->warning('Failed to create card choice entry on subscription creation', [
+                            'error' => $e->getMessage(),
+                            'orderTransactionId' => $transaction->getOrderTransactionId(),
+                        ]);
+                    }
+                }
             }
         }
 
@@ -179,84 +208,38 @@ class CreditCard extends AbstractPaymentHandler
         $customerId = $order->getOrderCustomer()?->getCustomerId();
         $subscriptionId = $this->subscriptionIdExtractor->extract($order);
 
+        $token = null;
         if (\is_string($customerId) && $customerId !== '' && \is_string($subscriptionId) && Uuid::isValid($subscriptionId)) {
-            $choiceCriteria = new Criteria();
-            $choiceCriteria->addFilter(new EqualsFilter('customerId', $customerId));
-            $choiceCriteria->addFilter(new EqualsFilter('subscriptionId', $subscriptionId));
+            $token = $this->subscriptionPaymentTokenService->resolvePaymentToken(
+                $subscriptionId,
+                $customerId,
+                $orderTransaction,
+                $context
+            );
+        }
 
-            /** @var SquareSubscriptionCardChoiceEntity|null $choice */
-            $choice = $this->squareSubscriptionCardChoiceRepository->search($choiceCriteria, $context)->first();
+        if ($token === null) {
+            $customFields = $orderTransaction->getCustomFields() ?? [];
+            $recurringPayment = \is_array($customFields['recurringPayment'] ?? null) ? (array) $customFields['recurringPayment'] : [];
+            $meta = \is_array($recurringPayment['meta'] ?? null) ? (array) $recurringPayment['meta'] : [];
 
-            if ($choice && \is_string($choice->getSquareCardId()) && $choice->getSquareCardId() !== '') {
-                $existingCustomFields = $orderTransaction->getCustomFields() ?? [];
-                $recurringPayment = \is_array($existingCustomFields['recurringPayment'] ?? null) ? (array) $existingCustomFields['recurringPayment'] : [];
-                $meta = \is_array($recurringPayment['meta'] ?? null) ? (array) $recurringPayment['meta'] : [];
+            $cardId = \is_string($recurringPayment['reference'] ?? null) ? (string) $recurringPayment['reference'] : null;
+            $squareCustomerId = \is_string($meta['squareCustomerId'] ?? null) ? (string) $meta['squareCustomerId'] : null;
 
-                $recurringPayment['reference'] = $choice->getSquareCardId();
-                $meta['provider'] = 'square';
-                $meta['cardId'] = $choice->getSquareCardId();
-
-                if (!\is_string($meta['squareCustomerId'] ?? null) || (string) $meta['squareCustomerId'] === '') {
-                    try {
-                        $scContext = $this->salesChannelContextFactory->create(
-                            Uuid::randomHex(),
-                            (string) $order->getSalesChannelId()
-                        );
-                        $cardsPayload = $this->squareCardService->getSavedCards($scContext);
-                    } catch (\Throwable $e) {
-                        $cardsPayload = null;
-                    }
-
-                    if (\is_array($cardsPayload)) {
-                        $cards = $cardsPayload['cards'] ?? [];
-                        if (\is_array($cards)) {
-                            foreach ($cards as $card) {
-                                if (!\is_array($card)) {
-                                    continue;
-                                }
-                                if (($card['id'] ?? null) !== $choice->getSquareCardId()) {
-                                    continue;
-                                }
-                                $cid = $card['customer_id'] ?? $card['customerId'] ?? null;
-                                if (\is_string($cid) && $cid !== '') {
-                                    $meta['squareCustomerId'] = $cid;
-                                }
-                                $meta['subscriptionCard'] = $card;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                $recurringPayment['meta'] = $meta;
-
-                $existingCustomFields['recurringPayment'] = $recurringPayment;
-
-                $this->orderTransactionRepository->upsert([
-                    [
-                        'id' => $orderTransactionId,
-                        'customFields' => $existingCustomFields,
-                    ]
-                ], $context);
-
-                $orderTransaction->setCustomFields($existingCustomFields);
+            if ($cardId !== null && $cardId !== '' && $squareCustomerId !== null && $squareCustomerId !== '') {
+                $token = [
+                    'cardId' => $cardId,
+                    'squareCustomerId' => $squareCustomerId,
+                ];
             }
         }
 
-        $customFields = $orderTransaction->getCustomFields() ?? [];
-        $recurringPayment = \is_array($customFields['recurringPayment'] ?? null) ? (array) $customFields['recurringPayment'] : [];
-
-        $cardId = \is_string($recurringPayment['reference'] ?? null) ? (string) $recurringPayment['reference'] : null;
-        $meta = \is_array($recurringPayment['meta'] ?? null) ? (array) $recurringPayment['meta'] : [];
-        $squareCustomerId = \is_string($meta['squareCustomerId'] ?? null) ? (string) $meta['squareCustomerId'] : null;
-
-        if (!$cardId) {
-            throw PaymentException::recurringInterrupted($orderTransactionId, 'Missing Square recurring card reference (customFields.recurringPayment.reference)');
+        if ($token === null) {
+            throw PaymentException::recurringInterrupted($orderTransactionId, 'Missing Square recurring payment token. Could not resolve from card choice table or order transaction.');
         }
 
-        if (!$squareCustomerId) {
-            throw PaymentException::recurringInterrupted($orderTransactionId, 'Missing Square customer id for recurring charge (customFields.recurringPayment.meta.squareCustomerId)');
-        }
+        $cardId = $token['cardId'];
+        $squareCustomerId = $token['squareCustomerId'];
 
         $currencyIsoCode = (string) ($order->getCurrency()?->getIsoCode() ?? '');
         if ($currencyIsoCode === '') {
@@ -356,6 +339,19 @@ class CreditCard extends AbstractPaymentHandler
         }
 
         throw new \RuntimeException('Order ID not found for transaction ID: ' . $orderTransactionId);
+    }
+
+    private function getOrderFromTransaction(string $orderTransactionId, Context $context): ?OrderEntity
+    {
+        $criteria = new Criteria([$orderTransactionId]);
+        $criteria->addAssociation('order');
+        $orderTransaction = $this->orderTransactionRepository->search($criteria, $context)->first();
+
+        if ($orderTransaction instanceof OrderTransactionEntity) {
+            return $orderTransaction->getOrder();
+        }
+
+        return null;
     }
 
     private function getPaymentMethodName(PaymentTransactionStruct $transaction, Context $context): string

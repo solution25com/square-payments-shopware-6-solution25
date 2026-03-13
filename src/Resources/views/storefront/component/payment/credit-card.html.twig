@@ -1,3 +1,12 @@
+{% set amount = 0 %}
+{% if page.extensions.squarepayments is defined and page.extensions.squarepayments.amount is defined %}
+    {% set amount = page.extensions.squarepayments.amount %}
+{% elseif page.cart is defined and page.cart.price is defined %}
+    {% set amount = page.cart.price.totalPrice %}
+{% elseif page.order is defined and page.order.amountTotal is defined %}
+    {% set amount = page.order.amountTotal %}
+{% endif %}
+
 {% set squarePaymentsCreditCardPluginOptions = {
     salesChannelAccessKey: context.salesChannel.accessKey,
     mode: config('SquarePayments.config.mode'),
@@ -7,7 +16,7 @@
     locationIdSandbox: config('SquarePayments.config.locationIdSandbox'),
     locationIdProduction: config('SquarePayments.config.locationIdProduction'),
     paymentMode : config('SquarePayments.config.paymentMode'),
-    amount: page.extensions.squarepayments.amount ?? 0,
+    amount: amount,
     currency: context.currency.shortName ?? '',
     isPaymentForm: true,
     translations: {
@@ -31,12 +40,21 @@
         subscriptionConfirmation: ('squarepayments.savedCards.subscriptionConfirmation' | trans)
     }
 } %}
-{% set isSubscription = false %}
-{% for lineItem in page.cart.lineItems %}
-    {% if lineItem.payload is defined and lineItem.payload.isSubscription is defined and lineItem.payload.isSubscription %}
+{% set isSubscription = context.extensions.subscription is defined %}
+{% if not isSubscription and page.order is defined %}
+    {% if page.order.subscriptionId is defined and page.order.subscriptionId %}
+        {% set isSubscription = true %}
+    {% elseif page.order.extensions is defined and page.order.extensions.subscription is defined %}
         {% set isSubscription = true %}
     {% endif %}
-{% endfor %}
+{% endif %}
+{% if not isSubscription and page.cart is defined %}
+    {% for lineItem in page.cart.lineItems %}
+        {% if lineItem.payload is defined and lineItem.payload.isSubscription is defined and lineItem.payload.isSubscription %}
+            {% set isSubscription = true %}
+        {% endif %}
+    {% endfor %}
+{% endif %}
 {% set squarePaymentsCreditCardPluginOptions = squarePaymentsCreditCardPluginOptions|merge( { isSubscription: isSubscription } ) %}
 
 <div class="payment-form">
