@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1] - 2026-03-13
+
+### Added
+- Improved compatibility with the **Shopware Out-of-the-Box Subscriptions plugin** for Square payments.
+
+### Changed
+- Refactored subscription payment token resolution logic.
+- The plugin now resolves the recurring payment token from `order_transaction.customFields.recurringPayment.reference` when no override exists in `*_subscription_card_choice`.
+
+### Fixed
+- Ensured recurring payments work correctly when no explicit subscription card choice is stored.
+- Improved stability of recurring payment processing with Square when used together with the default Shopware Subscriptions plugin.
+
+---
+
 ## [1.1.0] - 2026-03-02
 - Updated the subscription modal saved-card labels to display in the format “VISA •••• 1111 (12/2028)”.
 - Removed the Subscriptions grid from /account/squarepayments/saved-cards.
