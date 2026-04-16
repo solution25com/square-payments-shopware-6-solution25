@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.2] - 2026-04-16
+
+### Fixes  
+
+- **Payment fields rendering issue**  
+  Fixed an issue where Square payment input fields were incorrectly rendered on the payment methods page.
+
+---
+
 ## [1.1.1] - 2026-03-13
 
 ### Added
