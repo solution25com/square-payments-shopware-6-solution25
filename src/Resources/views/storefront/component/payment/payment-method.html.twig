@@ -5,14 +5,12 @@
 
 {% block component_payment_method_label %}
     {{ parent() }}
-
     {% set currentPaymentMethodId = selectedPaymentMethodId|default((context.paymentMethod is defined and context.paymentMethod is not null) ? context.paymentMethod.id : null) %}
     {% set isSquareCreditCard = payment.handlerIdentifier is same as('SquarePayments\\Gateways\\CreditCard')
         or payment.formattedHandlerIdentifier == 'handler_squarepayments_creditcard' %}
-
-    {% if isSquareCreditCard and currentPaymentMethodId and payment.id is same as(currentPaymentMethodId) %}
+    {% if page.extensions.squarepayments is defined and isSquareCreditCard and currentPaymentMethodId and payment.id is same as(currentPaymentMethodId) %}
         {% sw_include '@SquarePayments/storefront/component/payment/credit-card.html.twig' %}
-        {% set mode = config('SquarePayments.config.mode') %}
+        {% set mode = config('SquarePayments.config.mode') %} 
         <script src="{{ mode is same as('production') ? 'https://web.squarecdn.com/v1/square.js' : 'https://sandbox.web.squarecdn.com/v1/square.js' }}"></script>
-    {% endif %}
+    {% endif %}    
 {% endblock %}
