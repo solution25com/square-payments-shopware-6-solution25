@@ -79,6 +79,8 @@
             <argument type="service" id="SquarePayments\Service\SquareCustomerService"/>
             <argument type="service" id="customer.repository"/>
             <argument type="service" id="SquarePayments.logger"/>
+            <argument type="service" id="s25_subscription_address.repository" on-invalid="null"/>
+            <argument type="service" id="country.repository" on-invalid="null"/>
         </service>
         <service id="SquarePayments\Service\CustomFieldsInstaller">
             <argument type="service" id="custom_field_set.repository"/>
@@ -153,6 +155,8 @@
         </service>
         <service id="SquarePayments\Storefront\Controller\SquareSubscriptionCardChoiceController" public="true">
             <argument type="service" id="square_subscription_card_choice.repository"/>
+            <argument type="service" id="SquarePayments\Service\SquareCardService"/>
+            <argument type="service" id="SquarePayments.logger"/>
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>

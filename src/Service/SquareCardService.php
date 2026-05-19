@@ -8,6 +8,8 @@ use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Square\Models\Address;
 use Square\Models\Address as SqAddress;
@@ -28,7 +30,9 @@ class SquareCardService
         SquareApiFactory $client,
         private readonly SquareCustomerService $customerService,
         private readonly EntityRepository $customerRepository,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly ?EntityRepository $subscriptionAddressRepository = null,
+        private readonly ?EntityRepository $countryRepository = null,
     ) {
         $this->client = $client->create();
     }
@@ -126,6 +130,69 @@ class SquareCardService
         } catch (Exception $e) {
         }
         return ['card' => null];
+    }
+
+    public function syncSubscriptionBillingAddressFromCardChoice(string $subscriptionId, string $cardId, SalesChannelContext $context): void
+    {
+        if ($this->subscriptionAddressRepository === null || $subscriptionId === '' || $cardId === '') {
+            return;
+        }
+
+        try {
+            $card = $this->getSavedCard($context, $cardId)['card'] ?? null;
+            $billingAddress = \is_array($card) ? ($card['billing_address'] ?? $card['billingAddress'] ?? null) : null;
+
+            if ($billingAddress instanceof \JsonSerializable) {
+                $billingAddress = $billingAddress->jsonSerialize();
+            }
+
+            if (!\is_array($billingAddress) || $billingAddress === []) {
+                return;
+            }
+
+            $coreContext = $context->getContext();
+            $existingBillingAddress = $this->getSubscriptionAddress($subscriptionId, 'billing', $coreContext);
+            $fallbackAddress = $existingBillingAddress ?? $this->getSubscriptionAddress($subscriptionId, 'shipping', $coreContext);
+
+            if ($fallbackAddress === null) {
+                return;
+            }
+
+            $street = trim((string) ($billingAddress['address_line_1'] ?? ''));
+            $city = trim((string) ($billingAddress['locality'] ?? ''));
+            $zipcode = trim((string) ($billingAddress['postal_code'] ?? ''));
+            $countryId = $this->getCountryId($billingAddress, $coreContext) ?? $fallbackAddress->getCountryId();
+
+            $payload = [
+                'id' => $existingBillingAddress?->getId() ?? Uuid::randomHex(),
+                'subscriptionId' => $subscriptionId,
+                'addressType' => 'billing',
+                'countryId' => $countryId,
+                'countryStateId' => $countryId === $fallbackAddress->getCountryId() ? $fallbackAddress->getCountryStateId() : null,
+                'salutationId' => $fallbackAddress->getSalutationId(),
+                'firstName' => $fallbackAddress->getFirstName(),
+                'lastName' => $fallbackAddress->getLastName(),
+                'street' => $street !== '' ? $street : $fallbackAddress->getStreet(),
+                'zipcode' => $zipcode !== '' ? $zipcode : $fallbackAddress->getZipcode(),
+                'city' => $city !== '' ? $city : $fallbackAddress->getCity(),
+                'company' => $fallbackAddress->getCompany(),
+                'department' => $fallbackAddress->getDepartment(),
+                'title' => $fallbackAddress->getTitle(),
+                'vatId' => $fallbackAddress->getVatId(),
+                'phoneNumber' => $fallbackAddress->getPhoneNumber(),
+                'additionalAddressLine1' => $billingAddress['address_line_2'] ?? $fallbackAddress->getAdditionalAddressLine1(),
+                'additionalAddressLine2' => $billingAddress['address_line_3'] ?? $fallbackAddress->getAdditionalAddressLine2(),
+                'customFields' => $fallbackAddress->getCustomFields(),
+            ];
+
+            $this->subscriptionAddressRepository->upsert([$payload], $coreContext);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Square subscription billing address sync failed', [
+                'subscriptionId' => $subscriptionId,
+                'cardId' => $cardId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /** @return array<string,mixed> */
@@ -258,6 +325,36 @@ class SquareCardService
             return (string)$squareId;
         }
         return null;
+    }
+
+    private function getSubscriptionAddress(string $subscriptionId, string $addressType, Context $context): ?object
+    {
+        if ($this->subscriptionAddressRepository === null) {
+            return null;
+        }
+
+        $criteria = new Criteria();
+        $criteria->setLimit(1);
+        $criteria->addFilter(new EqualsFilter('subscriptionId', $subscriptionId));
+        $criteria->addFilter(new EqualsFilter('addressType', $addressType));
+
+        $address = $this->subscriptionAddressRepository->search($criteria, $context)->first();
+
+        return \is_object($address) ? $address : null;
+    }
+
+    private function getCountryId(array $billingAddress, Context $context): ?string
+    {
+        $country = strtoupper(trim((string) ($billingAddress['country'] ?? '')));
+        if ($this->countryRepository === null || $country === '') {
+            return null;
+        }
+
+        $criteria = new Criteria();
+        $criteria->setLimit(1);
+        $criteria->addFilter(new EqualsFilter(strlen($country) === 3 ? 'iso3' : 'iso', $country));
+
+        return $this->countryRepository->search($criteria, $context)->first()?->getId();
     }
 
     /** @return array<string,mixed> */

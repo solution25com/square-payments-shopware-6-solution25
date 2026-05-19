@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SquarePayments\Storefront\Controller;
 
+use Psr\Log\LoggerInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
@@ -11,6 +12,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Storefront\Controller\StorefrontController;
 use SquarePayments\Core\Content\SquareSubscriptionCardChoice\SquareSubscriptionCardChoiceEntity;
+use SquarePayments\Service\SquareCardService;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
@@ -20,6 +22,8 @@ class SquareSubscriptionCardChoiceController extends StorefrontController
 {
     public function __construct(
         private readonly EntityRepository $squareSubscriptionCardChoiceRepository,
+        private readonly SquareCardService $squareCardService,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -64,6 +68,16 @@ class SquareSubscriptionCardChoiceController extends StorefrontController
         ];
 
         $this->squareSubscriptionCardChoiceRepository->upsert([$payload], $context->getContext());
+
+        try {
+            $this->squareCardService->syncSubscriptionBillingAddressFromCardChoice($subscriptionId, $cardId, $context);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Failed to sync Square subscription billing address after card choice save', [
+                'subscriptionId' => $subscriptionId,
+                'cardId' => $cardId,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return new JsonResponse(['success' => true]);
     }
