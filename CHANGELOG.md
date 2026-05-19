@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.3] - 2026-05-19
+
+### Fixes
+
+- Updated subscription renewal billing address handling to use the billing address from the customer’s newly added payment method instead of the original order billing address for future renewals.
+---
+
 ## [1.1.2] - 2026-04-16
 
 ### Fixes  
